@@ -1,5 +1,13 @@
 # Galaxy Flow
 
+[![CI](https://github.com/galaxio-labs/galaxy-flow/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/galaxio-labs/galaxy-flow/actions)
+[![Coverage Status](https://coveralls.io/repos/github/galaxio-labs/galaxy-flow/badge.svg?branch=main)](https://coveralls.io/github/galaxio-labs/galaxy-flow?branch=main)
+[![Dependencies](https://deps.rs/repo/github/galaxio-labs/galaxy-flow/status.svg)](https://deps.rs/repo/github/galaxio-labs/galaxy-flow)
+[![Downloads](https://img.shields.io/github/downloads/galaxio-labs/galaxy-flow/total.svg)](https://github.com/galaxio-labs/galaxy-flow/releases)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
+[![Rust 2024 edition](https://img.shields.io/badge/Rust-2024-orange.svg)](https://www.rust-lang.org)
+[![GitHub stars](https://img.shields.io/github/stars/galaxio-labs/galaxy-flow.svg)](https://github.com/galaxio-labs/galaxy-flow/stargazers)
+
 Galaxy Flow 是基于 GXL 的开源自动化工作流引擎，提供自动化编排与执行底座，当前以 `gx` 作为统一 CLI 入口：
 - `gx run`：执行工作流（默认读取 `./_gal/work.gxl`）
 - `gx adm`：执行管理流（默认读取 `./_gal/adm.gxl`）
