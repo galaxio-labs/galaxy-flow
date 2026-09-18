@@ -115,13 +115,17 @@ pub fn detect_git_branch(start_at: &Path) -> Option<String> {
     let repo = git2::Repository::discover(start_at).ok()?;
     if let Ok(head) = repo.head() {
         if head.is_branch() {
-            return head.shorthand().and_then(non_empty).map(|v| v.to_string());
+            return head
+                .shorthand()
+                .ok()
+                .and_then(non_empty)
+                .map(|v| v.to_string());
         }
         // Detached HEAD is not a branch name by design.
         return None;
     }
     if let Ok(head_ref) = repo.find_reference("HEAD")
-        && let Some(sym) = head_ref.symbolic_target()
+        && let Ok(Some(sym)) = head_ref.symbolic_target()
         && let Some(branch) = sym.strip_prefix("refs/heads/")
     {
         return non_empty(branch).map(|v| v.to_string());
@@ -213,7 +217,8 @@ mod tests {
             .find_reference("HEAD")
             .expect("HEAD ref")
             .symbolic_target()
-            .expect("symbolic head")
+            .expect("read symbolic target")
+            .expect("HEAD is symbolic")
             .strip_prefix("refs/heads/")
             .expect("heads prefix")
             .to_string();

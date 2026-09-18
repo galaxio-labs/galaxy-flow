@@ -1,6 +1,6 @@
 use chrono::Local;
 use orion_conf::{IniIO, JsonIO, TomlIO, YamlIO};
-use rand::Rng;
+use rand::RngExt;
 use std::path::PathBuf;
 
 use crate::{ability::prelude::*, expect::LogicScope, traits::Setter, var::VarDict};

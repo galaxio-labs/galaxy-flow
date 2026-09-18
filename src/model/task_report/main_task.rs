@@ -28,9 +28,9 @@ pub async fn create_main_task(task_name: String) {
     }
     // 创建主任务
     let format: Result<
-        Vec<format_description::BorrowedFormatItem<'_>>,
+        format_description::FormatDescriptionV3<'_>,
         time::error::InvalidFormatDescription,
-    > = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]");
+    > = format_description::parse_borrowed::<3>("[year]-[month]-[day] [hour]:[minute]:[second]");
     let mut now = String::new();
     match format {
         Ok(fmt) => now = datetime.format(&fmt).unwrap_or_default(),

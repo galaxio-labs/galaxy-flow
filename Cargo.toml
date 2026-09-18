@@ -18,7 +18,7 @@ edition = "2021"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-winnow = "0.7"
+winnow = "1.0"
 orion-error = { version = "0.8", features = ["serde","anyhow"] }
 orion_conf = { version = "0.7", features = ["yaml", "toml", "json", "ini"] }
 #orion-error = { path = "../orion-error" }

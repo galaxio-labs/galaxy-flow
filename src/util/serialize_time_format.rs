@@ -7,8 +7,9 @@ pub fn serialize_time_format<S>(value: &OffsetDateTime, serializer: S) -> Result
 where
     S: Serializer,
 {
-    let format = format_description::parse("[year]-[month]-[day] [hour]:[minute]:[second]")
-        .expect("Invalid datetime format string"); // 硬编码格式应该总是有效
+    let format =
+        format_description::parse_borrowed::<3>("[year]-[month]-[day] [hour]:[minute]:[second]")
+            .expect("Invalid datetime format string"); // 硬编码格式应该总是有效
 
     value
         .format(&format)
