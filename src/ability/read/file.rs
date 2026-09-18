@@ -4,7 +4,7 @@ use crate::ability::prelude::*;
 use crate::traits::Setter;
 
 use orion_conf::{IniIO, JsonIO, YamlIO};
-use orion_error::{ToStructError, UvsFrom};
+use orion_error::conversion::{SourceErr, ToStructError};
 use orion_sec::sec::{SecFrom, SecValueType};
 use orion_variate::vars::ValueType;
 
@@ -24,14 +24,18 @@ impl FileDTO {
         let file = self.file.clone();
         let file_path = PathBuf::from(exp.eval(&file)?);
         let values = if file_path.extension() == PathBuf::from("*.ini").extension() {
-            ValueType::load_ini(&file_path).owe_data()?
+            ValueType::load_ini(&file_path)
+                .source_err(UvsReason::data_error().into(), "source error")?
         } else if file_path.extension() == PathBuf::from("*.json").extension() {
-            ValueType::load_json(&file_path).owe_data()?
+            ValueType::load_json(&file_path)
+                .source_err(UvsReason::data_error().into(), "source error")?
         } else if file_path.extension() == PathBuf::from("*.yml").extension() {
-            ValueType::load_yaml(&file_path).owe_data()?
+            ValueType::load_yaml(&file_path)
+                .source_err(UvsReason::data_error().into(), "source error")?
         } else {
-            return ExecReason::Args(format!("not support format :{}", file_path.display()))
-                .err_result();
+            return Err(ExecReason::Args
+                .to_err()
+                .with_detail(format!("not support format :{}", file_path.display())));
         };
         info!(target: ctx.path(),"read file from {} data len:{}", file_path.display(), values.len());
         let sec_values = SecValueType::nor_from(values);

@@ -105,6 +105,7 @@ gx.echo("hello");              // 等价，匿名参数映射到 default
 - 调用参数分隔符是 `,`。
 - 命名参数使用 `:`，如 `name: "v"`。
 - 很多能力支持 `default`（匿名首参数）写法。
+- `gx.cmd`、`gx.shell`、`gx.read_cmd` 支持 `stream: "true"`，用于长时间命令的实时输出。
 
 ## 5. 条件表达式
 
@@ -140,7 +141,30 @@ if defined(${CUR.ENABLE}) && ${CUR.ENABLE} == true {
 - `gx.download`
 - `gx.upload`
 - `gx.patch_file`
+- `gx.sn`
 
 补充：
 - `gx.vars` 只在 `env` 块中使用。
 - `defined(...)` 是表达式函数，不是 `gx.defined` 命令。
+
+## 7. 注解
+
+注解用 `#[...]` 写在 `mod` / `env` / `flow` 之前，多个注解可以用 `,` 写在同一个括号内：
+
+```gxl
+#[usage(desp="default auto")]
+env default : local;
+
+#[usage(desp="developer local env",color="red"),auto_load(entry)]
+flow __into {
+  prj_bins = "${ENV_ROOT}/bin";
+}
+```
+
+当前解析器识别的注解（见 `src/parser/stc_ann.rs`、`src/parser/stc_mod.rs`、`src/parser/stc_flow/body.rs`）：
+
+- `#[usage(desp="...", color="...")]`：给弹窗/菜单展示的描述与颜色
+- `#[auto_load(entry)]` / `#[auto_load(exit)]`：标记自动加载的入口/出口 flow
+- `#[task(name="...")]`：给 flow 打任务名
+
+参数形式统一是 `名称="值"`（字符串）；`#[fun]`（无参数）也合法。

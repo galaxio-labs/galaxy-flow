@@ -14,6 +14,7 @@ pub mod ver;
 pub use assert::gal_assert;
 pub use cmd::gal_cmd;
 
+// AI 能力已下线：ai_chat / ai_regst / ai_task 已隔离到 experimental/ai/src/parser/inner/，见 experimental/ai/README.md。
 //pub mod ai_chat;
 //pub mod ai_regst;
 //pub mod ai_task;

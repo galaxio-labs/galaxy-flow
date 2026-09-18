@@ -1,7 +1,8 @@
 use home::home_dir;
 use orion_accessor::addr::access_ctrl::{Rule, Unit, serv::NetAccessCtrl};
 use orion_conf::YamlIO;
-use orion_error::{ErrorOwe, ToStructError, UvsFrom};
+use orion_error::conversion::{SourceErr, ToStructError};
+use orion_error::reason::UnifiedReason as UvsReason;
 
 use crate::{
     conf::{conf_init, conf_path},
@@ -32,7 +33,8 @@ impl Galaxy {
 
         // 创建目录
         if !galaxy_dir.exists() {
-            std::fs::create_dir_all(&galaxy_dir).owe_res()?;
+            std::fs::create_dir_all(&galaxy_dir)
+                .source_err(UvsReason::resource_error().into(), "source error")?;
         }
 
         if conf_path().is_none() {
@@ -56,7 +58,9 @@ impl Galaxy {
             let rules = vec![Rule::new("https://google.com/*", "https://google.cn/")];
             let unit = Unit::new(rules, None, None);
             let service = NetAccessCtrl::new(vec![unit], true);
-            service.save_yaml(&net_ctrl_path).owe_res()?;
+            service
+                .save_yaml(&net_ctrl_path)
+                .source_err(UvsReason::resource_error().into(), "source error")?;
         }
 
         Ok(())
@@ -76,16 +80,19 @@ impl Galaxy {
             return Ok(());
         }
 
-        std::fs::create_dir_all(gal_dir).owe_res()?;
+        std::fs::create_dir_all(gal_dir)
+            .source_err(UvsReason::resource_error().into(), "source error")?;
 
         // Create basic work.gxl from template
         let work_gxl = gal_dir.join("work.gxl");
-        std::fs::write(&work_gxl, WORK_TEMPLATE).owe_res()?;
+        std::fs::write(&work_gxl, WORK_TEMPLATE)
+            .source_err(UvsReason::resource_error().into(), "source error")?;
         eprintln!("created: {}", work_gxl.display());
 
         // Create basic adm.gxl from template
         let adm_gxl = gal_dir.join("adm.gxl");
-        std::fs::write(&adm_gxl, ADM_TEMPLATE).owe_res()?;
+        std::fs::write(&adm_gxl, ADM_TEMPLATE)
+            .source_err(UvsReason::resource_error().into(), "source error")?;
         eprintln!("created: {}", adm_gxl.display());
 
         eprintln!("project initialized in ./_gal/");
@@ -95,7 +102,7 @@ impl Galaxy {
 
 #[cfg(test)]
 mod tests {
-    use orion_error::TestAssertWithMsg;
+    use orion_error::dev::testing::TestAssertWithMsg;
 
     use super::*;
     use std::{fs, path::PathBuf};

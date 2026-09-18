@@ -5,6 +5,71 @@ All notable changes to the Galaxy Flow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.13.15] - 2026-09-18
+
+### Added
+- **GXL docs mirror tooling**: Added `scripts/sync-gxl-docs.sh` (`sync` / `check` / `list`) to regenerate and verify the `operator-docs` copy of `docs/gxl/`. The mirror boundary is explicit: `docs/gxl/example/*.md` is owned by `operator-docs` and is never overwritten.
+
+### Documentation
+- **`gx init project` flags corrected**: README and the guide now document the real options (`--repo` / `--path` / `--branch` / `--tag`) instead of the non-existent `--tpl`, and state that init runs locally unless `--repo`/`--path` is given (`--branch` and `--tag` are mutually exclusive).
+- **README AI status**: `--ai` is documented as currently ineffective (`ai_diagnose` is a no-op), and the `gx run` option list now includes the previously missing `--log` and `-q/--quiet`.
+- **Single GXL syntax reference**: removed the stale duplicate `docs/syntax.md`; `docs/gxl/syntax.md` (also what `gx doc gxl` renders) is now the only syntax doc, with an added annotation section and `gx.sn` added to the built-in ability list.
+- **Structure and design docs realigned**: merged the duplicated `docs/structure/*-actual.md` into `docs/structure/*.md`, and corrected claims that no longer matched the code — the `self_update` file list, the removed init template directory, `wp-self-update = "0.3"`, and the release manifest repository name.
+- **Contributor guide rewritten**: `AGENTS.md` still described a two-binary (`gflow` / `gprj`) layout that no longer exists. It now documents the single `gx` binary, the real build/test/clippy commands (including `-D warnings`), and the fact that `docs/` Markdown is compiled into the binary via `include_str!`.
+
+### Changed
+- **Release manifest repository unified**: `.github/workflows/release.yml` now checks out and pushes to `galaxio-labs/get`, completing the earlier `galaxy-sec` → `galaxio-labs` migration.
+
+### Fixed
+- **Parser robustness**: `extern_parse` handled `DslStatus::Data` with `todo!()`; it now returns an error instead of panicking.
+- **Clippy on newer toolchains**: removed redundant borrows in `debug!` / `info!` / `format!` arguments that `clippy::useless_borrows_in_formatting` rejects on rustc 1.98+ (CI runs clippy with `-D warnings`).
+
+### Removed
+- **Repo-local installer**: Removed `install.sh`'s install logic and the `updates/{stable,alpha,beta}/manifest.json` manifests it read. That chain was unmaintained (stable pinned at `0.12.4` with placeholder all-zero checksums, so installs silently skipped verification) and it read a different manifest source than `gx self`. `install.sh` is now a deprecation stub that exits with a pointer to the official installer (`https://get.warpparse.ai/inst-x.sh`); `gx self` still reads `galaxio-labs/get`.
+- **Superseded init templates**: removed `app/gx/init/_gal/`. `gx init project` has generated its scaffold from `src/templates/` (embedded via `include_str!`) since the init templates moved there, and nothing referenced the old directory.
+- **Uncompiled AI code**: the AI implementation commented out of the build (`src/ability/ai/*`, `src/parser/inner/ai_*.rs`, `src/AI_DESIGN.md`) moved to `experimental/ai/` with a restore guide. `galaxy_flow::ability::ai` is no longer part of the library API.
+
+## [v0.13.14] - 2026-05-04
+
+### Added
+- **GXL serial number ability**: Added `gx.sn` for reading and updating simple numeric serial number files. The default action reads the current number and exports it as `SN` without writing the file; `action: "add"` increments and writes the next number; `action: "reset"` writes and exports `1`.
+- **Documentation topic**: Added `gx doc gx.sn` and included `gx.sn` in the built-in documentation topic list and GXL inner ability index.
+
+## [v0.13.13] - 2026-05-04
+
+### Changed
+- **Dependency upgrades**: Bumped orion-error to 0.8, orion_conf to 0.7, orion-sec to 0.6, orion-infra to 0.7, orion-variate to 0.13, and orion-accessor to 0.8.
+- **Structured error model**: Migrated `RunReason`, `ExecReason`, and `GxlReason` business variants to unit enum variants, keeping dynamic diagnostic text on `StructError` detail/source/context instead of enum payloads.
+- **orion-error v0.8 source handling**: Replaced selected `map_err` conversions at IO, HTTP, template walking, JSON serialization, and UTF-8 decoding boundaries with `source_err` or `source_raw_err` so underlying sources are preserved for reports.
+
+### Removed
+- **Legacy error compatibility**: Continued removing `.owe()`-era compatibility paths in favor of the current orion-error 0.8 APIs.
+
+## [v0.13.12] - 2026-04-29
+
+### Changed
+- **Dependency upgrades**: Bumped orion-error to 0.7, orion_conf to 0.6, orion-sec to 0.5, orion-infra to 0.6, orion-variate to 0.12, and orion-accessor to 0.7.
+
+- **orion-error v0.7 API migration**: Refactored error-handling calls across the entire codebase to match the new v0.7 API surface:
+  - `WithContext::want()` renamed to `WithContext::doing()`, and `.with()` renamed to `.with_context()` for contextual error chaining.
+  - Trait imports reorganized: `ErrorOwe`, `ErrorOweBase` moved to `orion_error::compat_traits`; `ToStructError`, `ContextRecord` moved to `orion_error::traits_ext`.
+  - `OperationContext::want()` → `OperationContext::doing()` and `.with()` → `.with_context()` in ability modules (tpl, archive, load, version).
+  - Added `DomainReason` trait implementations for `RunReason` and `GxlReason` custom error enums.
+  - Test utilities migrated: `TestAssertWithMsg` → `orion_error::testcase::TestAssertWithMsg`, and added `TestAssert` usage in unit tests.
+  - Replaced all deprecated `ErrorOwe` usage with `ErrorOweBase` + `UvsReason` across the codebase, removing 80+ deprecation warnings entirely.
+  - Replaced category-specific `.owe_*()` shortcut methods with `.owe(UvsReason::*.into())` for explicit error classification.
+
+## [v0.13.11] - 2026-04-21
+
+### Added
+- **Streaming shell output**: Added `stream: "true"` support to the shared shell option model used by `gx.cmd`, `gx.shell`, and `gx.read_cmd`, allowing long-running commands to forward stdout/stderr to the current session in real time while still preserving captured output and exit codes in command results.
+
+### Documentation
+- **GXL shell docs refresh**: Updated `docs/gxl` command, shell, read, syntax, help, and example pages to document the new streaming mode, including ansible-oriented examples and notes about stdout/stderr interleaving during live output.
+
+### Fixed
+- **Long-running command visibility**: `gx.cmd` no longer appears stalled during quiet long-running operations that do produce output; streamed execution now surfaces output immediately instead of waiting for the command to finish before printing buffered content.
+
 ## [v0.13.10] - 2026-04-07
 
 ### Changed
@@ -247,4 +312,3 @@ Previous stable release. This changelog covers changes from 0.9.2-beta.1 to 0.10
 
 ### Contributors
 Special thanks to the following developers for their contributions during the 0.10.x release cycle: @wukong, @sec-wukong, @tangxy1024, @tangxiangyan, @可乐加冰
->>>>>>> release/0.10

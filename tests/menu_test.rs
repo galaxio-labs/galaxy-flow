@@ -4,7 +4,7 @@ use galaxy_flow::execution::VarSpace;
 use galaxy_flow::infra::once_init_log;
 use galaxy_flow::menu::*;
 use galaxy_flow::traits::ExecLoadTrait;
-use orion_error::TestAssert;
+use orion_error::dev::testing::TestAssert;
 
 #[tokio::test]
 async fn menu_normal() {

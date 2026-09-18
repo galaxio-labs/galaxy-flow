@@ -7,6 +7,7 @@ use crate::{
     context::ExecContext,
     meta::GxlMeta,
 };
+use orion_error::conversion::ToStructError;
 
 use super::{cmd::CmdDTO, file::FileDTO, stdin::StdinDTO};
 
@@ -41,7 +42,7 @@ impl GxRead {
             ReadMode::CMD(o) => o.execute(ctx, dict),
             ReadMode::FILE(o) => o.execute(ctx, dict),
             ReadMode::STDIN(o) => o.execute(ctx, dict),
-            _ => Err(ExecReason::Gxl(String::from("not implementation")).into()),
+            _ => Err(ExecReason::Gxl.to_err().with_detail("not implementation")),
         }
     }
 }

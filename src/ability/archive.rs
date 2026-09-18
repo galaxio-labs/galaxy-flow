@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::ability::prelude::*;
 use getset::{Getters, Setters, WithSetters};
 use orion_accessor::archive::{compress, decompress};
-use orion_error::ToStructError;
+use orion_error::conversion::{ErrorWith, SourceErr, ToStructError};
 
 #[derive(Clone, Default, Debug, PartialEq, Getters, Setters, WithSetters, Builder)]
 #[getset(get = "pub", set = "pub", get_mut, set_with)]
@@ -47,14 +47,17 @@ impl AsyncRunnableTrait for GxTar {
             eprintln!("archive {}  -> {}", src.display(), dst.display());
         }
         if !src.exists() {
-            return ExecReason::Args("src not exists".into())
-                .err_result()
-                .with(&src);
+            return Err(ExecReason::Args
+                .to_err()
+                .with_detail("src not exists")
+                .with_context(&src));
         }
         if dst.exists() {
-            std::fs::remove_file(&dst).owe_res().with(&dst)?;
+            std::fs::remove_file(&dst)
+                .source_err(UvsReason::resource_error().into(), "source error")
+                .with_context(&dst)?;
         }
-        compress(src, dst).owe_res()?;
+        compress(src, dst).source_err(UvsReason::resource_error().into(), "source error")?;
         Ok(TaskValue::from((vars_dict, ExecOut::Ignore)))
     }
 }
@@ -76,15 +79,16 @@ impl AsyncRunnableTrait for GxUnTar {
             eprintln!("untar {}  -> {}", src.display(), out.display());
         }
         if !src.exists() {
-            return ExecReason::Args("src not exists".into())
-                .err_result()
-                .with(&src);
+            return Err(ExecReason::Args
+                .to_err()
+                .with_detail("src not exists")
+                .with_context(&src));
         }
         if out.exists() {
             // 如果目标是一个非空目录，先尝试删除它
             if out.is_dir() {
                 std::fs::remove_dir_all(&out)
-                    .or_else(|_| -> Result<(), Box<dyn std::error::Error>> {
+                    .or_else(|_| -> std::io::Result<()> {
                         // 如果删除整个目录失败，尝试删除目录内容
                         for entry in std::fs::read_dir(&out)? {
                             let entry = entry?;
@@ -97,14 +101,16 @@ impl AsyncRunnableTrait for GxUnTar {
                         }
                         Ok(())
                     })
-                    .owe_res()
-                    .with(&out)?;
+                    .source_err(ExecReason::resource_error(), "remove dir all")
+                    .with_context(&out)?;
             } else {
                 // 如果目标是一个文件，直接删除
-                std::fs::remove_file(&out).owe_res().with(&out)?;
+                std::fs::remove_file(&out)
+                    .source_err(ExecReason::resource_error(), "remove file")
+                    .with_context(&out)?;
             }
         }
-        decompress(src, out).owe_res()?;
+        decompress(src, out).source_err(UvsReason::resource_error().into(), "source error")?;
         Ok(TaskValue::from((vars_dict, ExecOut::Ignore)))
     }
 }

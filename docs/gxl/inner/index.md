@@ -9,6 +9,7 @@
 - `gx.vars`（仅 env 内）：`docs/gxl/inner/vars.md`
 - `gx.tpl`：`docs/gxl/inner/tpl.md`
 - `gx.ver`：`docs/gxl/inner/ver.md`
+- `gx.sn`：`docs/gxl/inner/sn.md`
 - `gx.run`：`docs/gxl/inner/run.md`
 - `gx.shell`：`docs/gxl/inner/shell.md`
 - `gx.tar / gx.untar`：`docs/gxl/inner/tar_untar.md`

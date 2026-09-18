@@ -6,6 +6,11 @@
 - 版本: 1.0
 - 状态: 已实现（MVP）
 
+> 与实现的对应关系：`src/ability/patch/{model,view,controller}.rs`。
+> 已核对：action 取值（`set` / `comment_line` / `uncomment_line` / `comment_block` /
+> `uncomment_block`）与 `src/ability/patch/model.rs` 一致；参数与 marker 约定与
+> `docs/gxl/inner/patch_file.md` 一致。
+
 ## 1. 目标与背景
 
 ### 1.1 背景

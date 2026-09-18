@@ -35,7 +35,7 @@ pub fn gal_run(input: &mut &str) -> Result<GxRun> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::infra::once_init_log;
 

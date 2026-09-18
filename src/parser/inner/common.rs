@@ -75,6 +75,8 @@ pub fn shell_opt_setting(key: String, value: String, shell_opt: &mut ShellOption
         shell_opt.log_lev = Some(parse_log((key.as_str(), value.as_str())));
     } else if key == "silence" && value.to_lowercase() == "true" {
         shell_opt.secrecy = true;
+    } else if key == "stream" && value.to_lowercase() == "true" {
+        shell_opt.stream = true;
     }
 }
 

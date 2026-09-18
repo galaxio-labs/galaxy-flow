@@ -30,4 +30,5 @@ pub use async_trait::async_trait;
 pub use crate::execution::VarSpace;
 pub use crate::execution::runnable::ComponentMeta;
 pub use derive_getters::Getters;
-pub use orion_error::{ErrorWith, WithContext};
+pub use orion_error::conversion::ErrorWith;
+pub use orion_error::runtime::WithContext;

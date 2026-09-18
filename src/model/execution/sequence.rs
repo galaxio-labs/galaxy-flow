@@ -3,7 +3,7 @@ use std::sync::mpsc::Sender;
 
 use crate::friendly::AppendAble;
 use async_trait::async_trait;
-use orion_error::ErrorConv;
+use orion_error::conversion::ConvErr;
 
 use crate::ExecResult;
 use crate::ability::prelude::TaskValue;
@@ -108,7 +108,7 @@ impl ExecSequence {
                 && let Some(undo) = item.undo_hold()
             {
                 let mut sequ = ExecSequence::default();
-                spc.find_flow(&undo, &mut sequ).err_conv()?;
+                spc.find_flow(&undo, &mut sequ).conv_err()?;
                 for undo in sequ.run_items() {
                     info!(target: ctx.path(), "regist undo {}", undo.gxl_meta().name());
                     trans_manage.add_undo_task(undo.clone(), def.clone());
@@ -164,7 +164,7 @@ fn build_exec_queue(
         && let Some(dryrun_meta) = item.dryrun_hold()
     {
         let mut sequ = ExecSequence::default();
-        spc.find_flow(&dryrun_meta, &mut sequ).err_conv()?;
+        spc.find_flow(&dryrun_meta, &mut sequ).conv_err()?;
         for dryrun in sequ.run_items() {
             info!(target: ctx.path(), "regist undo {}", dryrun.gxl_meta().name());
             sub_queue.push_back(dryrun.clone());

@@ -35,8 +35,8 @@ impl AsyncRunnableTrait for GxAssert {
         let exp = EnvExpress::from_env_mix(vars_dict.global().clone());
         let value = exp.eval(&self.value)?;
         let expect = exp.eval(&self.expect)?;
-        debug!(target: ctx.path(), "value  {} :{}", &self.value, value);
-        debug!(target: ctx.path(), "expect {} :{}", &self.expect, expect);
+        debug!(target: ctx.path(), "value  {} :{}", self.value, value);
+        debug!(target: ctx.path(), "expect {} :{}", self.expect, expect);
 
         match value == expect {
             true if self.result => {
@@ -64,10 +64,10 @@ impl AsyncRunnableTrait for GxAssert {
                 if !ctx.quiet() {
                     eprintln!("{err_msg}");
                 }
-                Err(ExecError::from(ExecReason::Assert(format!(
+                Err(ExecReason::Assert.to_err().with_detail(format!(
                     "assert fail! [{}], expect: {},\n value {}",
                     self.result, expect, value
-                ))))
+                )))
             }
         }
     }

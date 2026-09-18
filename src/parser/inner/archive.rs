@@ -50,7 +50,7 @@ pub fn gal_untar(input: &mut &str) -> Result<GxUnTar> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::infra::once_init_log;
 

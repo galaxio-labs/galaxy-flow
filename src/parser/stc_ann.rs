@@ -114,7 +114,7 @@ pub fn gal_ann(input: &mut &str) -> Result<AnnDto> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::{
         annotation::{FST_ARG_TAG, SEC_ARG_TAG},

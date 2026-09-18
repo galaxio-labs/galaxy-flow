@@ -1,6 +1,6 @@
 use crate::err::{RunReason, RunResult};
 use colored::Colorize;
-use orion_error::ToStructError;
+use orion_error::conversion::ToStructError;
 
 struct HelpTopic {
     key: &'static str,
@@ -96,6 +96,12 @@ const HELP_TOPICS: &[HelpTopic] = &[
         content: include_str!("../docs/gxl/inner/ver.md"),
     },
     HelpTopic {
+        key: "gx.sn",
+        aliases: &["sn", "serial"],
+        source: "docs/gxl/inner/sn.md",
+        content: include_str!("../docs/gxl/inner/sn.md"),
+    },
+    HelpTopic {
         key: "gx.tar",
         aliases: &["tar", "gx.untar", "untar"],
         source: "docs/gxl/inner/tar_untar.md",
@@ -163,11 +169,10 @@ fn resolve(topic: &str) -> RunResult<&'static HelpTopic> {
                     .any(|alias| normalize(alias) == normalized)
         })
         .ok_or_else(|| {
-            RunReason::Args(format!(
+            RunReason::Args.to_err().with_detail(format!(
                 "unknown doc topic `{topic}`. try one of: {}",
                 topic_keys().join(", ")
             ))
-            .to_err()
         })
 }
 
@@ -398,6 +403,12 @@ mod tests {
     fn topics_include_patch_file() {
         let keys = topic_keys();
         assert!(keys.contains(&"gx.patch_file"));
+    }
+
+    #[test]
+    fn topics_include_sn() {
+        let keys = topic_keys();
+        assert!(keys.contains(&"gx.sn"));
     }
 
     #[test]

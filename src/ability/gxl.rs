@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
-use orion_error::ErrorConv;
+use orion_error::conversion::{ConvErr, SourceErr};
 
 use crate::ability::prelude::*;
 
@@ -51,8 +51,8 @@ impl AsyncRunnableWithSenderTrait for GxRun {
 
         let run_path = PathBuf::from(exp.eval(&self.run_path)?);
         let _g = WorkDir::change(run_path.clone())
-            .owe_res()
-            .with(&run_path)?;
+            .source_err(UvsReason::resource_error().into(), "source error")
+            .with_context(&run_path)?;
         do_gxl_run(cmd, &vars_dict, self.env_isolate, sender).await?;
         action.finish();
         Ok(TaskValue::from((vars_dict, ExecOut::Action(action))))
@@ -70,7 +70,7 @@ pub async fn do_gxl_run(
     sender: Option<Sender<ReadSignal>>,
 ) -> ExecResult<TaskValue> {
     let sub_var_space = VarSpace::inherit_init(vars_dict.clone(), isolate)?;
-    GxlRunner::run(cmd, sub_var_space, sender).await.err_conv()
+    GxlRunner::run(cmd, sub_var_space, sender).await.conv_err()
 }
 
 #[cfg(test)]

@@ -14,7 +14,7 @@ use crate::ability::patch::GxPatchFile;
 use crate::ability::prelude::TaskValue;
 use crate::ability::shell::GxShell;
 use crate::ability::{
-    GxAssert, GxCmd, GxDownLoad, GxEcho, GxRead, GxRun, GxTpl, GxUpLoad, GxlVersion,
+    GxAssert, GxCmd, GxDownLoad, GxEcho, GxRead, GxRun, GxTpl, GxUpLoad, GxlSn, GxlVersion,
 };
 use crate::calculate::cond::CondExec;
 use crate::context::ExecContext;
@@ -32,6 +32,7 @@ pub enum BlockAction {
     Echo(GxEcho),
     Assert(GxAssert),
     Version(GxlVersion),
+    Sn(GxlSn),
     Read(GxRead),
     Call(Box<ActCall>),
     Tpl(GxTpl),
@@ -84,6 +85,7 @@ impl AsyncRunnableWithSenderTrait for BlockAction {
             BlockAction::UnTar(o) => o.async_exec(ctx, dct).await,
             BlockAction::Call(o) => o.async_exec(ctx, dct).await,
             BlockAction::Version(o) => o.async_exec(ctx, dct).await,
+            BlockAction::Sn(o) => o.async_exec(ctx, dct).await,
             BlockAction::Read(o) => o.async_exec(ctx, dct).await,
             BlockAction::UpLoad(o) => o.async_exec(ctx, dct).await,
             BlockAction::DownLoad(o) => o.async_exec(ctx, dct).await,
@@ -136,6 +138,7 @@ impl DependTrait<&GxlSpace> for BlockNode {
                 BlockAction::Echo(v) => BlockAction::Echo(v.clone()),
                 BlockAction::Assert(v) => BlockAction::Assert(v.clone()),
                 BlockAction::Version(v) => BlockAction::Version(v.clone()),
+                BlockAction::Sn(v) => BlockAction::Sn(v.clone()),
                 BlockAction::Command(v) => BlockAction::Command(v.clone()),
                 BlockAction::Shell(v) => BlockAction::Shell(v.clone()),
                 BlockAction::GxlRun(v) => BlockAction::GxlRun(v.clone()),

@@ -60,6 +60,37 @@ pub fn gal_version(input: &mut &str) -> Result<GxlVersion> {
     }
 }
 
+pub fn gal_sn(input: &mut &str) -> Result<GxlSn> {
+    let mut builder = GxlSnBuilder::default();
+    builder.export("SN".into());
+    builder.action(SnAction::Read);
+    gal_keyword_alt("gx.sn", "rg.sn", input)?;
+    let props = action_call_args.parse_next(input)?;
+    for (key, val) in props {
+        if key == "file" {
+            builder.file(val);
+            continue;
+        }
+        if key == "export" {
+            builder.export(val);
+            continue;
+        }
+        if key == "action" {
+            if let Ok(action) = parse_sn_action(val.as_str()) {
+                builder.action(action);
+            } else {
+                return fail.parse_next(input);
+            }
+            continue;
+        }
+    }
+    if let Ok(sn) = builder.build() {
+        Ok(sn)
+    } else {
+        fail.parse_next(input)
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -96,6 +127,46 @@ mod tests {
              gx.ver  ( file : "./tests/version.txt",  inc : "build"  ) ;"#;
         let found = gal_version(&mut data).unwrap();
         let expect = GxlVersion::new("./tests/version.txt".into());
+        assert_eq!(found, expect);
+        assert_eq!(data, "");
+    }
+
+    #[test]
+    fn sn_test() {
+        let mut data = r#"
+             gx.sn  ( file : "./tests/sn.txt" ) ;"#;
+        let found = gal_sn(&mut data).unwrap();
+        let expect = GxlSn::new("./tests/sn.txt".into());
+        assert_eq!(found, expect);
+        assert_eq!(data, "");
+    }
+
+    #[test]
+    fn sn_reset_test() {
+        let mut data = r#"
+             gx.sn  ( file : "./tests/sn.txt", export : "BUILD_SN", action : "reset"  ) ;"#;
+        let found = gal_sn(&mut data).unwrap();
+        let expect = GxlSnBuilder::default()
+            .file("./tests/sn.txt".into())
+            .export("BUILD_SN".into())
+            .action(SnAction::Reset)
+            .build()
+            .unwrap();
+        assert_eq!(found, expect);
+        assert_eq!(data, "");
+    }
+
+    #[test]
+    fn sn_add_test() {
+        let mut data = r#"
+             gx.sn  ( file : "./tests/sn.txt", export : "BUILD_SN", action : "add"  ) ;"#;
+        let found = gal_sn(&mut data).unwrap();
+        let expect = GxlSnBuilder::default()
+            .file("./tests/sn.txt".into())
+            .export("BUILD_SN".into())
+            .action(SnAction::Add)
+            .build()
+            .unwrap();
         assert_eq!(found, expect);
         assert_eq!(data, "");
     }

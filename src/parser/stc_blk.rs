@@ -16,7 +16,7 @@ use super::atom::spaced;
 use super::domain::{gal_block_beg, gal_block_end, gal_keyword};
 use super::inner::{
     gal_assert, gal_cmd, gal_download, gal_echo, gal_patch_file, gal_prop, gal_read_cmd,
-    gal_read_file, gal_read_stdin, gal_tpl, gal_upload, gal_version,
+    gal_read_file, gal_read_stdin, gal_sn, gal_tpl, gal_upload, gal_version,
 };
 
 pub fn gal_block(input: &mut &str) -> Result<BlockNode> {
@@ -85,6 +85,9 @@ pub fn gal_sentens_item(input: &mut &str) -> Result<BlockAction> {
     if starts_with("gx.ver", input) {
         return gal_version.map(BlockAction::Version).parse_next(input);
     }
+    if starts_with("gx.sn", input) {
+        return gal_sn.map(BlockAction::Sn).parse_next(input);
+    }
     if starts_with("gx.read_file", input) {
         return gal_read_file.map(BlockAction::Read).parse_next(input);
     }
@@ -145,7 +148,7 @@ pub fn gal_loop(input: &mut &str) -> Result<GxlLoop> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::components::gxl_block::BlockAction;
     use crate::parser::{

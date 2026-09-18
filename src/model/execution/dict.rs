@@ -1,5 +1,6 @@
 use derive_more::From;
-use orion_error::{ErrorConv, ToStructError};
+use orion_error::conversion::ToStructError;
+use orion_error::reason::UnifiedReason as UvsReason;
 use orion_sec::load_secfile;
 use orion_sec::sec::{SecFrom, SecString, SecValueType, ValueGetter};
 use orion_variate::vars::EnvDict;
@@ -29,7 +30,19 @@ impl From<&VarSpace> for EnvDict {
 impl VarSpace {
     pub fn sys_init() -> ExecResult<VarSpace> {
         let mut var_space = VarSpace::default();
-        let sec_dict = load_secfile().err_conv()?;
+        let sec_dict = load_secfile().map_err(|e| {
+            let detail = e.to_string();
+            match e.reason() {
+                orion_sec::OrionSecReason::Sec(_sec_reason) => {
+                    ExecReason::Sec.to_err().with_detail(detail)
+                }
+                orion_sec::OrionSecReason::General(uvs_reason) => {
+                    ExecReason::from(map_legacy_uvs_reason(uvs_reason))
+                        .to_err()
+                        .with_detail(detail)
+                }
+            }
+        })?;
         //let sec_dict = load_secfile()?;
         var_space.inherited = VarDict::from(sec_dict);
         //load_secfile(&mut var_space.inherited)?;
@@ -62,7 +75,7 @@ impl VarSpace {
         self.global()
             .maps()
             .value_get(path)
-            .ok_or(ExecReason::Miss(path.to_string()).to_err())
+            .ok_or_else(|| ExecReason::Miss.to_err().with_detail(path.to_string()))
     }
 
     pub fn merge_args_to(
@@ -84,7 +97,7 @@ impl VarSpace {
                     GxlObject::VarRef(name) => {
                         let value = cur_vars
                             .get(name.as_str())
-                            .ok_or(ExecReason::Miss(name.clone()).to_err())?;
+                            .ok_or_else(|| ExecReason::Miss.to_err().with_detail(name.clone()))?;
                         cur_vars.global_mut().set(param.name().clone(), value);
                     }
                     GxlObject::Value(value) => {
@@ -110,6 +123,28 @@ impl VarSpace {
             }
         }
         Ok(cur_vars)
+    }
+}
+
+fn map_legacy_uvs_reason(value: &impl std::fmt::Debug) -> UvsReason {
+    let debug = format!("{value:?}");
+    match debug.as_str() {
+        "ValidationError" => UvsReason::ValidationError,
+        "BusinessError" => UvsReason::BusinessError,
+        "RunRuleError" => UvsReason::RunRuleError,
+        "NotFoundError" => UvsReason::NotFoundError,
+        "PermissionError" => UvsReason::PermissionError,
+        "DataError" => UvsReason::DataError,
+        "SystemError" => UvsReason::SystemError,
+        "NetworkError" => UvsReason::NetworkError,
+        "ResourceError" => UvsReason::ResourceError,
+        "TimeoutError" => UvsReason::TimeoutError,
+        "ExternalError" => UvsReason::ExternalError,
+        "LogicError" => UvsReason::LogicError,
+        "ConfigError(Core)" => UvsReason::core_conf(),
+        "ConfigError(Feature)" => UvsReason::feature_conf(),
+        "ConfigError(Dynamic)" => UvsReason::dynamic_conf(),
+        _ => UvsReason::SystemError,
     }
 }
 #[derive(Debug, Clone, Default, PartialEq, From)]

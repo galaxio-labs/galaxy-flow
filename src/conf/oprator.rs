@@ -1,5 +1,6 @@
 use orion_conf::TomlIO;
-use orion_error::{ErrorOwe, ToStructError, UvsFrom};
+use orion_error::conversion::{SourceErr, ToStructError};
+use orion_error::reason::UnifiedReason as UvsReason;
 use orion_infra::path::ensure_path;
 use std::path::PathBuf;
 
@@ -56,10 +57,11 @@ pub fn conf_path() -> Option<PathBuf> {
 pub fn conf_init() -> RunResult<()> {
     if let Some(home_dir) = dirs::home_dir() {
         let galaxy_root = home_dir.join(".galaxy");
-        ensure_path(&galaxy_root).owe_logic()?;
+        ensure_path(&galaxy_root).source_err(UvsReason::logic_error().into(), "source error")?;
         let conf_file = galaxy_root.join("conf.toml");
         let conf = GxlConf::new(ReportCenterConf::local(), true);
-        conf.save_toml(&conf_file).owe_res()?;
+        conf.save_toml(&conf_file)
+            .source_err(UvsReason::resource_error().into(), "source error")?;
         return Ok(());
     }
     Err(RunReason::from_sys()
@@ -75,7 +77,7 @@ mod tests {
         conf::{conf_init, conf_path, oprator::load_gxl_config},
         task_report::task_rc_config::TASK_REPORT_CENTER,
     };
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     // 加载任务配置测试
     #[tokio::test]

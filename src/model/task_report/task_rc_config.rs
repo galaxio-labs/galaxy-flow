@@ -1,5 +1,5 @@
 use crate::{
-    ExecError, ExecReason,
+    ExecError,
     task_report::main_task::{create_main_task, get_task_parent_id},
     util::redirect::{init_redirect_file, platform::StdoutRedirect},
 };
@@ -95,8 +95,7 @@ pub async fn init_redirect_and_parent_task(
 
     if ai_diagnose || report_enable().await {
         // 处理日志路径
-        let log_path = init_redirect_file()
-            .map_err(|e| ExecReason::Io(format!("Failed to initialize log file: {e}")))?;
+        let log_path = init_redirect_file()?;
         // macOS平台特定逻辑
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         {

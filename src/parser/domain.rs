@@ -198,7 +198,7 @@ pub fn gal_keyword_alt(
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::parser::{abilities::define::gal_var_assign_obj, inner::run_gxl};
 

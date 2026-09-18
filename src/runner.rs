@@ -6,7 +6,7 @@ use crate::{
     execution::VarSpace,
     util::redirect::ReadSignal,
 };
-use orion_error::{ErrorConv, ErrorWith, ToStructError, UvsFrom};
+use orion_error::conversion::{ConvErr, ErrorWith, ToStructError};
 use std::{path::Path, sync::mpsc::Sender};
 
 /// Galaxy Flow 运行器
@@ -45,17 +45,17 @@ impl GxlRunner {
                 return Err(RunReason::from_conf()
                     .to_err()
                     .with_detail("gx run conf not exists"))
-                .with(("conf", conf.clone()));
+                .with_context(("conf", conf.clone()));
             }
 
             let spc = loader
                 .parse_file(conf.as_str(), false, &vars)
                 .await?
                 .assemble()
-                .err_conv()?;
+                .conv_err()?;
 
             if cmd.flows.is_empty() {
-                spc.show().err_conv()?;
+                spc.show().conv_err()?;
             } else {
                 // 解析环境列表 / Parse environment list
                 return spc.exec(cmd, vars, sender).await;
@@ -72,7 +72,7 @@ impl GxlRunner {
                 return Err(RunReason::from_conf()
                     .to_err()
                     .with_detail("gx run conf not exists"))
-                .with(("conf", conf.clone()));
+                .with_context(("conf", conf.clone()));
             }
             let loader = GxLoader::new();
 
@@ -80,8 +80,8 @@ impl GxlRunner {
                 .parse_file(conf.as_str(), false, &vars)
                 .await?
                 .assemble()
-                .err_conv()?;
-            spc.show().err_conv()?;
+                .conv_err()?;
+            spc.show().conv_err()?;
             Ok(())
         } else {
             Err(RunReason::from_conf()

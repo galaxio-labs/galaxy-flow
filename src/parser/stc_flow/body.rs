@@ -34,7 +34,7 @@ pub fn gal_stc_flow(input: &mut &str) -> Result<GxlFlow> {
 #[cfg(test)]
 mod tests {
     use crate::friendly::New3;
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::{
         components::gxl_flow::anno::{FlowAnnFunc, FlowAnnotation},

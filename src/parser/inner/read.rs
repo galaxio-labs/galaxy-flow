@@ -86,7 +86,7 @@ pub fn gal_read_cmd(input: &mut &str) -> Result<GxRead> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::{
         ability::read::{CmdDTO, FileDTO, StdinDTO},
