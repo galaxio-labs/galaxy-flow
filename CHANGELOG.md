@@ -5,10 +5,29 @@ All notable changes to the Galaxy Flow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.13.15] - 2026-09-18
+
+### Added
+- **GXL docs mirror tooling**: Added `scripts/sync-gxl-docs.sh` (`sync` / `check` / `list`) to regenerate and verify the `operator-docs` copy of `docs/gxl/`. The mirror boundary is explicit: `docs/gxl/example/*.md` is owned by `operator-docs` and is never overwritten.
+
+### Documentation
+- **`gx init project` flags corrected**: README and the guide now document the real options (`--repo` / `--path` / `--branch` / `--tag`) instead of the non-existent `--tpl`, and state that init runs locally unless `--repo`/`--path` is given (`--branch` and `--tag` are mutually exclusive).
+- **README AI status**: `--ai` is documented as currently ineffective (`ai_diagnose` is a no-op), and the `gx run` option list now includes the previously missing `--log` and `-q/--quiet`.
+- **Single GXL syntax reference**: removed the stale duplicate `docs/syntax.md`; `docs/gxl/syntax.md` (also what `gx doc gxl` renders) is now the only syntax doc, with an added annotation section and `gx.sn` added to the built-in ability list.
+- **Structure and design docs realigned**: merged the duplicated `docs/structure/*-actual.md` into `docs/structure/*.md`, and corrected claims that no longer matched the code — the `self_update` file list, the removed init template directory, `wp-self-update = "0.3"`, and the release manifest repository name.
+- **Contributor guide rewritten**: `AGENTS.md` still described a two-binary (`gflow` / `gprj`) layout that no longer exists. It now documents the single `gx` binary, the real build/test/clippy commands (including `-D warnings`), and the fact that `docs/` Markdown is compiled into the binary via `include_str!`.
+
+### Changed
+- **Release manifest repository unified**: `.github/workflows/release.yml` now checks out and pushes to `galaxio-labs/get`, completing the earlier `galaxy-sec` → `galaxio-labs` migration.
+
+### Fixed
+- **Parser robustness**: `extern_parse` handled `DslStatus::Data` with `todo!()`; it now returns an error instead of panicking.
+- **Clippy on newer toolchains**: removed redundant borrows in `debug!` / `info!` / `format!` arguments that `clippy::useless_borrows_in_formatting` rejects on rustc 1.98+ (CI runs clippy with `-D warnings`).
 
 ### Removed
 - **Repo-local installer**: Removed `install.sh`'s install logic and the `updates/{stable,alpha,beta}/manifest.json` manifests it read. That chain was unmaintained (stable pinned at `0.12.4` with placeholder all-zero checksums, so installs silently skipped verification) and it read a different manifest source than `gx self`. `install.sh` is now a deprecation stub that exits with a pointer to the official installer (`https://get.warpparse.ai/inst-x.sh`); `gx self` still reads `galaxio-labs/get`.
+- **Superseded init templates**: removed `app/gx/init/_gal/`. `gx init project` has generated its scaffold from `src/templates/` (embedded via `include_str!`) since the init templates moved there, and nothing referenced the old directory.
+- **Uncompiled AI code**: the AI implementation commented out of the build (`src/ability/ai/*`, `src/parser/inner/ai_*.rs`, `src/AI_DESIGN.md`) moved to `experimental/ai/` with a restore guide. `galaxy_flow::ability::ai` is no longer part of the library API.
 
 ## [v0.13.14] - 2026-05-04
 
@@ -293,4 +312,3 @@ Previous stable release. This changelog covers changes from 0.9.2-beta.1 to 0.10
 
 ### Contributors
 Special thanks to the following developers for their contributions during the 0.10.x release cycle: @wukong, @sec-wukong, @tangxy1024, @tangxiangyan, @可乐加冰
->>>>>>> release/0.10

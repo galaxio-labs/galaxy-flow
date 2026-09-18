@@ -1,7 +1,7 @@
 
 [package]
 
-version = "0.13.14" # @gxl:set(version)
+version = "0.13.15" # @gxl:set(version)
 authors = ["wukong<sec-wukong@outlook.com>"]
 edition = "2024"
 name = "galaxy_flow"

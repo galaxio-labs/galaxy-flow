@@ -5,10 +5,29 @@ Galaxy Flow项目所有重要变更将记录在此文件中。
 本格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 标准，
 本项目遵循 [语义化版本2.0.0](https://semver.org/lang/zh-CN/spec/v2.0.0.html) 规范。
 
-## [Unreleased]
+## [v0.13.15] - 2026-09-18
+
+### 新增
+- **GXL 文档镜像工具**：新增 `scripts/sync-gxl-docs.sh`（`sync` / `check` / `list`），用于生成并校验 `operator-docs` 中的 `docs/gxl/` 副本。镜像边界是显式的：`docs/gxl/example/*.md` 归 `operator-docs` 自有，永不被覆盖。
+
+### 文档
+- **`gx init project` 参数修正**：README 与使用指南改为记录真实参数（`--repo` / `--path` / `--branch` / `--tag`），去掉并不存在的 `--tpl`；并说明不带 `--repo`/`--path` 时为本地初始化（`--branch` 与 `--tag` 互斥）。
+- **README 的 AI 状态**：`--ai` 标注为当前无效（`ai_diagnose` 是 no-op）；`gx run` 参数列表补上原先遗漏的 `--log` 与 `-q/--quiet`。
+- **GXL 语法文档去重**：移除过时的重复文档 `docs/syntax.md`；`docs/gxl/syntax.md`（同时也是 `gx doc gxl` 渲染的内容）成为唯一语法文档，并新增注解章节、补上内置能力列表中遗漏的 `gx.sn`。
+- **结构文档与设计文档对齐实现**：把重复的 `docs/structure/*-actual.md` 合并进 `docs/structure/*.md`，并更正与代码不符的描述——`self_update` 文件列表、已删除的初始化模板目录、`wp-self-update = "0.3"`、release manifest 的仓库名。
+- **协作者指南重写**：`AGENTS.md` 此前描述的是已不存在的 `gflow` / `gprj` 双二进制布局；现改为记录单二进制 `gx`、真实的构建/测试/clippy 命令（含 `-D warnings`），以及 `docs/` 下的 Markdown 会经 `include_str!` 编译进二进制这一事实。
+
+### 变更
+- **Release manifest 仓库名统一**：`.github/workflows/release.yml` 改为 checkout 并推送到 `galaxio-labs/get`，补齐此前 `galaxy-sec` → `galaxio-labs` 的迁移。
+
+### 修复
+- **解析器健壮性**：`extern_parse` 中 `DslStatus::Data` 原为 `todo!()`，现改为返回错误而不是 panic。
+- **新工具链下的 clippy**：去掉 `debug!` / `info!` / `format!` 参数中多余的引用——rustc 1.98+ 的 `clippy::useless_borrows_in_formatting` 会拒绝（CI 以 `-D warnings` 跑 clippy）。
 
 ### 移除
 - **仓库内安装脚本**：移除 `install.sh` 的安装逻辑及其读取的 `updates/{stable,alpha,beta}/manifest.json` 清单。该链路长期未维护（stable 停在 `0.12.4`，sha256 是全零占位符，安装时会静默跳过校验），且与 `gx self` 使用的清单来源不是同一份数据。`install.sh` 现为弃用提示桩，退出并指向官方安装脚本（`https://get.warpparse.ai/inst-x.sh`）；`gx self` 仍读取 `galaxio-labs/get`。
+- **已被取代的初始化模板**：移除 `app/gx/init/_gal/`。自初始化模板迁移到 `src/templates/`（用 `include_str!` 编译进二进制）之后，`gx init project` 一直从那里生成脚手架，旧目录没有任何引用。
+- **未参与编译的 AI 代码**：把被注释掉、从不参与编译的 AI 实现（`src/ability/ai/*`、`src/parser/inner/ai_*.rs`、`src/AI_DESIGN.md`）移到 `experimental/ai/` 并附恢复说明。`galaxy_flow::ability::ai` 不再属于库的公开 API。
 
 ## [v0.13.14] - 2026-05-04
 
