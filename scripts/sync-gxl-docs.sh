@@ -3,7 +3,7 @@
 # 同步 / 校验 GXL 文档镜像（单一真源：galaxy-flow 本仓库的 docs/gxl/）
 #
 # 背景
-#   operator-docs 仓库中的 gxl/ 大部分是本仓库 docs/gxl/ 的镜像，但
+#   operator-docs 仓库中的 src/gxl/ 大部分是本仓库 docs/gxl/ 的镜像，但
 #   docs/gxl/example/*.md 在 operator-docs 侧是刻意改写的运维向内容
 #   （补充“对应目录 / 运行方式 / 这个示例验证了什么”等），不是镜像。
 #   因此这里用显式边界，而不是整目录覆盖——整目录 rsync 会毁掉那 9 个文件。
@@ -18,7 +18,7 @@
 #
 # 默认路径
 #   --src   <本仓库>/docs/gxl
-#   --dest  <本仓库>/../operator-docs/gxl
+#   --dest  <本仓库>/../operator-docs/src/gxl
 #
 # 边界
 #   镜像：docs/gxl/** 中除下面 EXCLUDE_GLOBS 之外的**全部文件**
@@ -30,7 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 SRC="$REPO_ROOT/docs/gxl"
-DEST="$REPO_ROOT/../operator-docs/gxl"
+DEST="$REPO_ROOT/../operator-docs/src/gxl"
 
 # 这些是 operator-docs 侧自有的运维向文档，不属于镜像，永不覆盖。
 # 使用相对 src 的 glob 匹配。
@@ -75,7 +75,7 @@ if [ ! -d "$SRC" ]; then
 fi
 if [ "$MODE" != "list" ] && [ ! -d "$DEST" ]; then
 	echo "dest dir not found: $DEST" >&2
-	echo "hint: pass --dest pointing at the operator-docs gxl/ directory" >&2
+	echo "hint: pass --dest pointing at the operator-docs src/gxl/ directory" >&2
 	exit 2
 fi
 
@@ -161,5 +161,5 @@ if [ ${#orphans[@]} -gt 0 ]; then
 	printf '  - %s\n' "${orphans[@]}" >&2
 fi
 echo "" >&2
-echo "修复：在 galaxy-flow 仓库执行 scripts/sync-gxl-docs.sh sync --dest <operator-docs>/gxl" >&2
+echo "修复：在 galaxy-flow 仓库执行 scripts/sync-gxl-docs.sh sync --dest <operator-docs>/src/gxl" >&2
 exit 1
