@@ -1,5 +1,11 @@
 # AI Fun 基础功能示例
 
+> **⚠️ 当前状态：功能已下线，本文档仅作历史留存**
+>
+> AI 能力目前在 galaxy-flow 中不可用：`orion-ai` 依赖在 `Cargo.toml` 中被注释；`gx.ai_fun` / `gx.ai_chat` 的解析与执行模块未编译（`src/parser/inner/mod.rs`、`src/ability/ai/mod.rs` 中相关 `pub mod` 已注释）。本示例当前执行会报 `call not found: gx.ai_fun`（该能力未接入）。
+>
+> 下面的命令用的是旧 `gflow` 二进制，该二进制已不存在（现已统一为 `gx`）；即使换成 `gx`，也需要等 `gx.ai_fun` 重新接入后才能运行。
+
 ## 概述
 
 本示例展示了 Galaxy-flow 第一期实现的 `gx.ai_fun` 基础功能。这是一个全新的 AI 任务执行框架，允许用户在 gxl 工作流中直接调用 AI 功能。
@@ -35,18 +41,23 @@ mod main {
 
 #### 1. 简单对话
 ```bash
-cd galaxy-flow
-./target/debug/gflow -f examples/ai_fun_basic/_gal/work.gxl chat_test
+# 历史命令（旧 gflow 二进制，当前不可用）
+# ./target/debug/gflow -f examples/ai_fun_basic/_gal/work.gxl chat_test
+#
+# 当前 CLI 形式（需等 gx.ai_fun 恢复接入后才能运行）
+# cd examples/ai_fun_basic && gx run chat_test
 ```
 
 #### 2. 任务描述
 ```bash
-./target/debug/gflow -f examples/ai_fun_basic/_gal/work.gxl task_test
+# 历史命令（旧 gflow 二进制，当前不可用）
+# ./target/debug/gflow -f examples/ai_fun_basic/_gal/work.gxl task_test
 ```
 
 #### 3. 组合参数
 ```bash
-./target/debug/gflow -f examples/ai_fun_basic/_gal/work.gxl combined_test
+# 历史命令（旧 gflow 二进制，当前不可用）
+# ./target/debug/gflow -f examples/ai_fun_basic/_gal/work.gxl combined_test
 ```
 
 ## 参数说明

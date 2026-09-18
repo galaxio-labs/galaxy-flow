@@ -126,7 +126,7 @@ impl AsyncRunnableTrait for GxlVersion {
                 let mut ver = Version::new(a, b, c, d);
                 ver.auto(&self.verinc);
                 dict.global_mut()
-                    .set(&self.export.to_uppercase(), format!("{}", &ver));
+                    .set(&self.export.to_uppercase(), format!("{ver}"));
                 let mut file = File::create(file_path.as_str())
                     .source_err(UvsReason::resource_error().into(), "source error")?;
                 file.write_all(ver.to_string().as_bytes())

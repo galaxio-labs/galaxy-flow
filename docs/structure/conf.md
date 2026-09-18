@@ -1,6 +1,24 @@
-# conf 模块说明
+# conf 模块结构
 
-本页是入口说明，结构事实请以 `docs/structure/conf-actual.md` 为准。
+## 模块定位
 
-- 模块职责：`.gxlprj` 配置定位、初始化与加载。
-- 常用函数：`conf_init`、`conf_path`、`load_gxl_config`。
+`src/conf` 负责 `.gxlprj` 配置的定位、初始化和加载。
+
+## 实际文件结构
+
+```text
+src/conf/
+├── mod.rs
+├── gxlconf.rs
+├── oprator.rs
+└── mod_test.rs
+```
+
+## 对外导出（`src/conf/mod.rs`）
+
+- 模块：`gxlconf, oprator`
+- 函数：`conf_init, conf_path, load_gxl_config`
+
+## 说明
+
+- `mod_test.rs` 由 `mod.rs` 内部引用，仅用于测试。

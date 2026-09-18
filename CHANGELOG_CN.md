@@ -5,6 +5,11 @@ Galaxy Flow项目所有重要变更将记录在此文件中。
 本格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 标准，
 本项目遵循 [语义化版本2.0.0](https://semver.org/lang/zh-CN/spec/v2.0.0.html) 规范。
 
+## [Unreleased]
+
+### 移除
+- **仓库内安装脚本**：移除 `install.sh` 的安装逻辑及其读取的 `updates/{stable,alpha,beta}/manifest.json` 清单。该链路长期未维护（stable 停在 `0.12.4`，sha256 是全零占位符，安装时会静默跳过校验），且与 `gx self` 使用的清单来源不是同一份数据。`install.sh` 现为弃用提示桩，退出并指向官方安装脚本（`https://get.warpparse.ai/inst-x.sh`）；`gx self` 仍读取 `galaxio-labs/get`。
+
 ## [v0.13.14] - 2026-05-04
 
 ### 新增

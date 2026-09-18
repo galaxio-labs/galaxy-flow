@@ -191,7 +191,13 @@ impl ExternParser {
                     status = cur_status;
                     have_extern = true;
                 }
-                DslStatus::Data => todo!(),
+                DslStatus::Data => {
+                    // DslStatus::Data 目前没有任何生产者，正常不会走到这里；
+                    // 保留为错误而不是 panic，避免内部状态不一致直接崩掉进程。
+                    return Err(ExecReason::Gxl
+                        .to_err()
+                        .with_detail("unexpected DslStatus::Data in extern_parse"));
+                }
                 DslStatus::End => break,
             }
         }

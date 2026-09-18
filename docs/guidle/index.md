@@ -1,9 +1,8 @@
 # Galaxy Flow 使用指南
 
 本文档基于以下资料整理：
-- `docs/structure/*-actual.md`
+- `docs/structure/*`
 - `docs/gxl/*`
-- `docs/syntax.md`
 
 目标：给使用者一份从“项目初始化 -> 编写 GXL -> 执行与发布”的实操入口。
 
@@ -46,13 +45,18 @@ gx init env
 # 初始化项目（本地，不依赖远程模板）
 gx init project
 
-# 初始化项目（使用远程模板）
-gx init project --tpl simple
+# 初始化项目（从默认模板仓库的子目录）
+# 默认仓库：https://github.com/galaxio-labs/prj-tpl.git
+gx init project --path rust
+
+# 初始化项目（从指定仓库）
+gx init project --repo https://your-tpl-repo.git
 ```
 
 说明：
-- `gx init project` 不带 `--tpl` 时，执行本地初始化，创建基本的 `./_gal/` 目录结构
-- `gx init project --tpl xxx` 时，从 git 仓库拉取模板
+- `gx init project` 不带 `--repo`/`--path` 时，执行本地初始化，创建基本的 `./_gal/` 目录结构
+- `gx init project --path xxx`（或 `--repo xxx`）时，从 git 仓库拉取模板；`--branch` 与 `--tag` 互斥
+- 完整参数说明见 `docs/guidle/cli/gx.md`
 
 ### 3.2 查看配置与运行
 
@@ -90,7 +94,7 @@ mod demo {
 建议先掌握：
 - 变量：`docs/gxl/var_def.md`
 - 常量：`docs/gxl/const.md`
-- 语法：`docs/syntax.md`
+- 语法：`docs/gxl/syntax.md`
 - 内置能力：`docs/gxl/inner/index.md`
 
 ## 5. 常用内置能力

@@ -5,6 +5,11 @@ All notable changes to the Galaxy Flow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- **Repo-local installer**: Removed `install.sh`'s install logic and the `updates/{stable,alpha,beta}/manifest.json` manifests it read. That chain was unmaintained (stable pinned at `0.12.4` with placeholder all-zero checksums, so installs silently skipped verification) and it read a different manifest source than `gx self`. `install.sh` is now a deprecation stub that exits with a pointer to the official installer (`https://get.warpparse.ai/inst-x.sh`); `gx self` still reads `galaxio-labs/get`.
+
 ## [v0.13.14] - 2026-05-04
 
 ### Added

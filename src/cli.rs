@@ -550,7 +550,7 @@ mod tests {
         DEFAULT_ADM_CONF, DEFAULT_WORK_CONF, OutputMode, collect_git_extern_mod_names_from_code,
         collect_mod_update_inputs, format_self_check_report, normalized_argv, output_mode,
     };
-    use crate::cmd::gx_cmd::{AdmCmd, GxCmd, RunCmd, SelfCheckArgs, SelfCmd};
+    use crate::cmd::gx_cmd::{GxCmd, SelfCheckArgs, SelfCmd};
     use crate::err::RunReason;
     use crate::self_update::{CheckResult, ReleaseChannel};
 
@@ -675,88 +675,6 @@ mod main {}
         let cmd = GxCmd::parse_from(["gx", "adm", "--quiet"]);
 
         assert_eq!(output_mode(&cmd), OutputMode::Machine);
-    }
-
-    #[test]
-    fn parse_run_and_adm_wrappers() {
-        match GxCmd::parse_from(["gx", "run", "conf"]) {
-            GxCmd::Run(RunCmd { cmd }) => assert_eq!(cmd.flows, vec!["conf".to_string()]),
-            other => panic!("unexpected command: {other:?}"),
-        }
-
-        match GxCmd::parse_from(["gx", "adm", "conf"]) {
-            GxCmd::Adm(AdmCmd { cmd }) => assert_eq!(cmd.flows, vec!["conf".to_string()]),
-            other => panic!("unexpected command: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parse_init_project_with_repo() {
-        use crate::cmd::gx_cmd::InitCmd;
-
-        // no args = local init (repo is None)
-        let cmd =
-            GxCmd::try_parse_from(["gx", "init", "project"]).expect("init project should parse");
-        match cmd {
-            GxCmd::Init(InitCmd::Project(args)) => {
-                assert_eq!(args.repo(), &None);
-                assert_eq!(args.path(), &None);
-            }
-            other => panic!("unexpected command: {other:?}"),
-        }
-
-        // --repo specified
-        let cmd = GxCmd::try_parse_from([
-            "gx",
-            "init",
-            "project",
-            "--repo",
-            "https://github.com/user/repo.git",
-        ])
-        .expect("init project with repo should parse");
-        match cmd {
-            GxCmd::Init(InitCmd::Project(args)) => {
-                assert_eq!(
-                    args.repo(),
-                    &Some("https://github.com/user/repo.git".to_string())
-                );
-                assert_eq!(args.path(), &None);
-            }
-            other => panic!("unexpected command: {other:?}"),
-        }
-
-        // --repo with --path
-        let cmd = GxCmd::try_parse_from([
-            "gx",
-            "init",
-            "project",
-            "--repo",
-            "https://github.com/user/repo.git",
-            "--path",
-            "rust",
-        ])
-        .expect("init project with repo and path should parse");
-        match cmd {
-            GxCmd::Init(InitCmd::Project(args)) => {
-                assert_eq!(
-                    args.repo(),
-                    &Some("https://github.com/user/repo.git".to_string())
-                );
-                assert_eq!(args.path(), &Some("rust".to_string()));
-            }
-            other => panic!("unexpected command: {other:?}"),
-        }
-
-        // --path only (will use default repo at runtime)
-        let cmd = GxCmd::try_parse_from(["gx", "init", "project", "--path", "rust"])
-            .expect("init project with path should parse");
-        match cmd {
-            GxCmd::Init(InitCmd::Project(args)) => {
-                assert_eq!(args.repo(), &None); // default repo is applied at runtime
-                assert_eq!(args.path(), &Some("rust".to_string()));
-            }
-            other => panic!("unexpected command: {other:?}"),
-        }
     }
 
     #[test]

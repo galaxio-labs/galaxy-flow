@@ -14,9 +14,9 @@ Galaxy Flow 是基于 GXL 的开源自动化工作流引擎，提供自动化编
 - 运行时主链路可用：`parser -> model -> ability -> runner`
 - 内置 `gx.*` 能力可用（见下文）
 - `gx self` 自更新可用（check/update/rollback）
-- AI 能力当前为降级状态：
-  - `ai_diagnose` 当前是 no-op（仅提示 `AI diagnose is currently disabled`）
-  - `gx.ai_chat` 未作为当前内置 block 能力接入
+- AI 能力当前为降级状态（相关代码已隔离到 `experimental/ai/`，见该目录 README）：
+  - `--ai` 参数仍被接受，但 `ai_diagnose` 是 no-op（只打印 `AI diagnose is currently disabled`），出错时不会产生额外诊断
+  - `gx.ai_chat` / `gx.ai_fun` 等内置能力未接入：GXL 中写这些调用会在装配阶段报 `call not found`（实测 `gx.ai_fun`）
 
 ## Core Capabilities / 核心能力
 
@@ -88,14 +88,18 @@ gx init env
 # 初始化项目（本地，不依赖远程模板）
 gx init project
 
-# 初始化项目（使用远程模板）
-gx init project --tpl simple
-gx init project --tpl simple --repo https://your-tpl-repo.git
+# 初始化项目（从默认模板仓库的子目录）
+# 默认仓库：https://github.com/galaxio-labs/prj-tpl.git
+gx init project --path rust
+
+# 初始化项目（从指定仓库 / 指定仓库子目录）
+gx init project --repo https://your-tpl-repo.git
+gx init project --repo https://your-tpl-repo.git --path subdir --branch dev
 ```
 
 其中 `gx init env` 会初始化 `~/.galaxy/` 下的用户级运行配置，包括 `conf.toml`。
 
-`gx init project` 不带 `--tpl` 时，执行本地初始化，创建基本的 `./_gal/work.gxl` 和 `./_gal/adm.gxl` 文件。
+`gx init project` 不带 `--repo`/`--path` 时执行本地初始化，创建基本的 `./_gal/work.gxl` 和 `./_gal/adm.gxl` 文件；带 `--path`（或 `--repo`）时从 git 仓库拉取模板，`--branch` 与 `--tag` 互斥。详见 `docs/guidle/cli/gx.md`。
 
 ### Run Flows
 
@@ -133,7 +137,7 @@ gx <COMMAND>
 gx run [OPTIONS] [FLOWS]...
 ```
 
-常用参数：`-e/--env`、`-c/--conf`、`-d/--debug`、`--cmd-arg`、`--dryrun`、`--ai`
+常用参数：`-e/--env`、`-c/--conf`、`-d/--debug`、`--log`、`-q/--quiet`、`--cmd-arg`、`--dryrun`、`--ai`（`--ai` 当前无效，见上方「Current Status」）
 
 ## Self Update (`gx self`)
 

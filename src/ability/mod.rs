@@ -1,4 +1,6 @@
-pub mod ai;
+// AI 能力已下线：整个 ai 模块已隔离到 experimental/ai/，见该目录下的 README。
+// 恢复方式：git mv experimental/ai/src/ability/ai src/ability/ai，并还原下面这行。
+//pub mod ai;
 pub mod archive;
 pub mod assert;
 pub mod cmd;

@@ -225,11 +225,67 @@ mod tests {
 
     #[test]
     fn parse_init_project() {
+        // no args = local init (repo/path are None)
         let cmd =
             GxCmd::try_parse_from(["gx", "init", "project"]).expect("init project should parse");
-
         match cmd {
-            GxCmd::Init(InitCmd::Project(_args)) => {}
+            GxCmd::Init(InitCmd::Project(args)) => {
+                assert_eq!(args.repo(), &None);
+                assert_eq!(args.path(), &None);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+
+        // --repo only
+        let cmd = GxCmd::try_parse_from([
+            "gx",
+            "init",
+            "project",
+            "--repo",
+            "https://github.com/user/repo.git",
+        ])
+        .expect("init project with repo should parse");
+        match cmd {
+            GxCmd::Init(InitCmd::Project(args)) => {
+                assert_eq!(
+                    args.repo(),
+                    &Some("https://github.com/user/repo.git".to_string())
+                );
+                assert_eq!(args.path(), &None);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+
+        // --repo with --path
+        let cmd = GxCmd::try_parse_from([
+            "gx",
+            "init",
+            "project",
+            "--repo",
+            "https://github.com/user/repo.git",
+            "--path",
+            "rust",
+        ])
+        .expect("init project with repo and path should parse");
+        match cmd {
+            GxCmd::Init(InitCmd::Project(args)) => {
+                assert_eq!(
+                    args.repo(),
+                    &Some("https://github.com/user/repo.git".to_string())
+                );
+                assert_eq!(args.path(), &Some("rust".to_string()));
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+
+        // --path only (default repo is applied at runtime)
+        let cmd = GxCmd::try_parse_from(["gx", "init", "project", "--path", "rust"])
+            .expect("init project with path should parse");
+        match cmd {
+            GxCmd::Init(InitCmd::Project(args)) => {
+                assert_eq!(args.repo(), &None);
+                assert_eq!(args.path(), &Some("rust".to_string()));
+            }
             other => panic!("unexpected command: {other:?}"),
         }
     }

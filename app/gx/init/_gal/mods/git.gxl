@@ -1,7 +1,0 @@
-mod git {
-  flow tag_ver  {
-    gx.ver ( file : "${ENV_ROOT}/version.txt" ,  inc : "null" );
-    gx.cmd ( "git tag ${VERSION}" );
-    gx.cmd ( "git push --tags" );
-  }
-}
