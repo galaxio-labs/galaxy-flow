@@ -1,5 +1,5 @@
 use super::abilities::define::gal_gxl_object;
-use super::inner::funs::gal_defined;
+use super::inner::funs::{gal_defined, gal_gx_exists};
 use super::prelude::*;
 use orion_parse::define::take_var_ref_name;
 use orion_parse::symbol::{
@@ -53,8 +53,11 @@ pub fn gal_cmp_exp(input: &mut &str) -> Result<ExpressEnum> {
 }
 
 pub fn gal_cmp_fun(input: &mut &str) -> Result<ExpressEnum> {
-    let defined = gal_defined.parse_next(input)?;
-    Ok(ExpressEnum::from(defined))
+    alt((
+        gal_gx_exists.map(ExpressEnum::from),
+        gal_defined.map(ExpressEnum::from),
+    ))
+    .parse_next(input)
 }
 
 pub fn gal_logic_not(input: &mut &str) -> Result<ExpressEnum> {

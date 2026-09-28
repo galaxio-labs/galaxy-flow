@@ -10,6 +10,7 @@ use std::env;
 #[derive(Clone, Debug, From)]
 pub enum BoolBinFn {
     Defined(FnDefined),
+    Exists(crate::calculate::exist::FnExists),
 }
 
 #[derive(Clone, Default, Builder, Debug, PartialEq, Getters)]
@@ -38,6 +39,7 @@ impl Evaluation for BoolBinFn {
     fn decide(&self, ctx: ExecContext, args: &VarSpace) -> DecideResult {
         match self {
             BoolBinFn::Defined(f) => f.decide(ctx, args),
+            BoolBinFn::Exists(f) => f.decide(ctx, args),
         }
     }
 }

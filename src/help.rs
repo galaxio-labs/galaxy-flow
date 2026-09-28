@@ -119,6 +119,12 @@ const HELP_TOPICS: &[HelpTopic] = &[
         source: "docs/gxl/inner/defined.md",
         content: include_str!("../docs/gxl/inner/defined.md"),
     },
+    HelpTopic {
+        key: "gx.exists",
+        aliases: &["exists"],
+        source: "docs/gxl/inner/gx_exists.md",
+        content: include_str!("../docs/gxl/inner/gx_exists.md"),
+    },
 ];
 
 pub fn print(topic: Option<&str>, markdown: bool) -> RunResult<()> {

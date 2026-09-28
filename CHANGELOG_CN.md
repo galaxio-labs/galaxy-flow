@@ -5,6 +5,18 @@ Galaxy Flow项目所有重要变更将记录在此文件中。
 本格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 标准，
 本项目遵循 [语义化版本2.0.0](https://semver.org/lang/zh-CN/spec/v2.0.0.html) 规范。
 
+## [v0.14.0] - 2026-09-28
+
+### 新增
+- **`gx.exists(flow: "...")` 条件函数**：与 `defined(${VAR})` 同层次的表达式函数（直接用在 `if` 里），判断流程是否存在。它读取**已装配空间**的流程名集合，因此无副作用、不解析 extern、不联网；不存在返回 `false`（不是错误）。支持裸名、`mod.flow` 限定名与变量（`gx.exists(${P})`）。
+- **`gx run <flow> --exists`**：面向 gx 之外调用方（脚本/上层工具）的流程存在性探测。流程存在退出 `0`，否则退出 `1`。它会**加载 conf**（但不执行任何流程），所以 conf 无法加载（含 extern 模块未缓存）也归为 `1`，并在 stderr 给出原因。
+
+### 修复
+- **`gx.run(flow: ...)` 转发**：`flow` 参数此前被解析后丢弃，子执行沿用了外层流程；且解析器把逗号分隔值 split 后再无分隔拼接。现改为覆盖子执行的流程，并逐个转发逗号分隔的多个名字。
+
+### 文档
+- 补充 `gx.exists` 与 `--exists` 探测（GXL 内置能力索引、`gx.run` 的 `flow` 说明、CLI 指南）；`gx doc gx.exists` 现可解析。
+
 ## [v0.13.15] - 2026-09-18
 
 ### 新增

@@ -81,12 +81,52 @@ pub async fn dispatch(cmd: GxCmd) -> RunResult<()> {
     Ok(())
 }
 
+/// `--exists` 的退出码：全部存在 → 0，否则 1。
+fn exists_exit_code(missing: &[String]) -> i32 {
+    if missing.is_empty() { 0 } else { 1 }
+}
+
+/// `--exists`：判定流程是否存在后直接以退出码 0/1 结束（不执行流程）。
+///
+/// conf 缺失/解析失败（含 extern 未就绪）统一按「不存在」处理（exit 1），
+/// 并在 stderr 给出原因，保证调用方得到严格的 0/1。
+async fn run_exists_or_exit(
+    conf: Option<String>,
+    flows: Vec<String>,
+    vars: VarSpace,
+) -> RunResult<()> {
+    use std::process;
+    if flows.is_empty() {
+        eprintln!("gx exists: no flow name given");
+        process::exit(1);
+    }
+    let missing = match GxlRunner::exists(conf, &flows, vars).await {
+        Ok(missing) => missing,
+        Err(e) => {
+            eprintln!("gx exists: {e}");
+            process::exit(1);
+        }
+    };
+    for name in &missing {
+        eprintln!("gx exists: flow not found: {name}");
+    }
+    process::exit(exists_exit_code(&missing));
+}
+
 async fn do_run_cmd(mut cmd: GFlowCmd) -> RunResult<()> {
     use std::process;
 
     let mut var_space = VarSpace::sys_init().conv_err()?;
 
     configure_cli_runtime(cmd.log.clone(), cmd.debug);
+
+    if cmd.conf.is_none() {
+        cmd.conf = Some(DEFAULT_WORK_CONF.to_string());
+    }
+
+    if cmd.exists {
+        run_exists_or_exit(cmd.conf.clone(), cmd.get_all_flows(), var_space.clone()).await?;
+    }
 
     let redirect = crate::model::task_report::task_rc_config::init_redirect_and_parent_task(
         cmd.flows.join(","),
@@ -95,9 +135,6 @@ async fn do_run_cmd(mut cmd: GFlowCmd) -> RunResult<()> {
     .await
     .conv_err()?;
 
-    if cmd.conf.is_none() {
-        cmd.conf = Some(DEFAULT_WORK_CONF.to_string());
-    }
     var_space.global_mut().set(CMD_ARG, cmd.cmd_args.join(" "));
 
     if cmd.list_cmd().is_empty() {
@@ -133,11 +170,17 @@ async fn do_adm_cmd(mut cmd: GFlowCmd) -> RunResult<()> {
 
     configure_cli_runtime(cmd.log.clone(), cmd.debug);
     let mut var_space = VarSpace::sys_init().conv_err()?;
-    var_space.global_mut().set(CMD_ARG, cmd.cmd_args.join(" "));
 
     if cmd.conf.is_none() {
         cmd.conf = Some(DEFAULT_ADM_CONF.to_string());
     }
+
+    if cmd.exists {
+        run_exists_or_exit(cmd.conf.clone(), cmd.get_all_flows(), var_space.clone()).await?;
+    }
+
+    var_space.global_mut().set(CMD_ARG, cmd.cmd_args.join(" "));
+
     if cmd.list_cmd().is_empty() {
         if !cmd.quiet {
             GxlRunner::info(cmd.conf.clone(), var_space).await?;
@@ -557,6 +600,16 @@ mod tests {
     fn mod_update_config_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[test]
+    fn exists_exit_code_maps_missing_to_one() {
+        assert_eq!(super::exists_exit_code(&[]), 0);
+        assert_eq!(super::exists_exit_code(&["a".to_string()]), 1);
+        assert_eq!(
+            super::exists_exit_code(&["a".to_string(), "b".to_string()]),
+            1
+        );
     }
 
     struct ConfigBackup {

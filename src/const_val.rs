@@ -24,6 +24,21 @@ pub mod gxl_const {
     pub const NET_ACCESS_CTRL_FILE: &str = "net_accessor_ctrl.yml";
     pub const AI_CONF_FILE: &str = "ai.yml";
     pub const AI_ROLE_FILE: &str = "ai-roles.yml";
+
+    /// 主模块名：未限定的流程名默认归属该模块。
+    pub const MAIN_MOD: &str = "main";
+
+    /// 将流程名归一化为限定名 `<mod>.<flow>`：
+    /// 已含 `.` 的视为 `mod.flow` 限定名；否则归属 `MAIN_MOD`。
+    ///
+    /// `gx.exists` / `--exists` 与运行期解析共用同一规则，避免判定与“能不能跑”不一致。
+    pub fn full_flow_name(name: &str) -> String {
+        if name.contains('.') {
+            name.to_string()
+        } else {
+            format!("{MAIN_MOD}.{name}")
+        }
+    }
 }
 
 /// AI工具相关常量定义

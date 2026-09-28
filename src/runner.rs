@@ -65,6 +65,40 @@ impl GxlRunner {
             .to_err()
             .with_detail("gx run exec fail!"))
     }
+
+    /// 判定若干流程是否存在（只读：加载 + 装配，**不执行**）。
+    ///
+    /// 返回不存在的流程名列表。conf 缺失或解析失败（含 extern 未就绪）按
+    /// 「无法确认存在」处理并返回 `Err`；调用方（CLI `--exists`）统一映射为退出码 1。
+    pub async fn exists(
+        conf: Option<String>,
+        flows: &[String],
+        vars: VarSpace,
+    ) -> RunResult<Vec<String>> {
+        let Some(conf) = conf else {
+            return Err(RunReason::from_conf()
+                .to_err()
+                .with_detail("gx exists missing gxl file"));
+        };
+        if !Path::new(conf.as_str()).exists() {
+            return Err(RunReason::from_conf()
+                .to_err()
+                .with_detail("gx exists conf not exists"))
+            .with_context(("conf", conf.clone()));
+        }
+        let loader = GxLoader::new();
+        let spc = loader
+            .parse_file(conf.as_str(), false, &vars)
+            .await?
+            .assemble()
+            .conv_err()?;
+        Ok(flows
+            .iter()
+            .filter(|flow| !spc.has_flow(flow))
+            .cloned()
+            .collect())
+    }
+
     pub async fn info(conf: Option<String>, vars: VarSpace) -> RunResult<()> {
         if let Some(ref conf) = conf {
             // 检查配置文件是否存在 / Check if configuration file exists

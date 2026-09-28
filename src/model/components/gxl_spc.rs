@@ -14,11 +14,15 @@ use colored::Colorize;
 use contracts::requires;
 use indexmap::IndexMap;
 use orion_error::conversion::{ConvErr, ToStructError};
-use std::{fmt::Display, sync::mpsc::Sender};
+use std::{
+    collections::HashSet,
+    fmt::Display,
+    sync::{Arc, mpsc::Sender},
+};
 
 use super::GxlMod;
+use crate::const_val::gxl_const::{MAIN_MOD, full_flow_name};
 
-const MAIN_MOD: &str = "main";
 const ENV_MOD: &str = "env";
 const ENVS_MOD: &str = "envs";
 
@@ -216,7 +220,7 @@ impl GxlSpace {
         warn!(target : "exec","inherted vars :\n{}", var_space.inherited());
         info!(target : "exec","inherted vars :\n{}", var_space.global());
 
-        let main_ctx = ExecContext::new(cmd.clone());
+        let main_ctx = ExecContext::new(cmd.clone()).with_flow_names(self.flow_names());
         let flow = cmd.flows();
         self.execute_flow(&main_ctx, &var_space, &envs, flow, sender.clone())
             .await
@@ -261,10 +265,35 @@ impl GxlSpace {
     }
 
     fn normalize_flow_name(&self, name: &str) -> String {
-        if name.contains('.') {
-            name.to_string()
-        } else {
-            format!("{MAIN_MOD}.{name}",)
+        full_flow_name(name)
+    }
+
+    /// 当前空间里所有可寻址流程的**限定名**（`<mod>.<flow>`）集合。
+    ///
+    /// 供 `gx.exists(...)` 之类的存在性判定使用；从已装配的模块表派生，
+    /// 不触发任何解析或下载。名字统一为限定名，查询方应先用
+    /// [`crate::const_val::gxl_const::full_flow_name`] 归一化，保证与运行期解析一致。
+    pub fn flow_names(&self) -> Arc<HashSet<String>> {
+        let mut names = HashSet::new();
+        for (mod_name, mox) in &self.mods {
+            for flow_name in mox.flows().keys() {
+                names.insert(format!("{mod_name}.{flow_name}"));
+            }
+        }
+        Arc::new(names)
+    }
+
+    /// 判断给定流程名是否存在。未限定名默认归属于 `main` 模块，也接受
+    /// `mod.flow` 限定名；归一化规则与运行期解析共用 [`full_flow_name`]。
+    pub fn has_flow(&self, name: &str) -> bool {
+        let full = full_flow_name(name);
+        match full.split_once('.') {
+            Some((mod_name, flow_name)) => self
+                .mods
+                .get(mod_name)
+                .map(|mox| mox.flows().contains_key(flow_name))
+                .unwrap_or(false),
+            None => false,
         }
     }
 

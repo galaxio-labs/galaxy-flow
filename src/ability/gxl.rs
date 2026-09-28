@@ -44,16 +44,33 @@ impl AsyncRunnableWithSenderTrait for GxRun {
         let mut action = Action::from("gx.run");
 
         let exp = EnvExpress::from_env_mix(vars_dict.global().clone());
-        let cmd = ctx.gxl_cmd().as_ref().clone();
-        let cmd = cmd
+        let base = ctx
+            .gxl_cmd()
+            .as_ref()
+            .clone()
             .with_env(exp.eval(&self.env_conf)?)
             .with_conf(Some(exp.eval(&self.gxl_path)?));
+
+        // 转发 `flow:`：显式指定时用它覆盖外层 flow（原先该参数被解析后丢弃）。
+        // 支持逗号分隔的多个流程，逐个转发。
+        let flows: Vec<String> = if self.flow_cmd.trim().is_empty() {
+            vec![base.flows().clone()]
+        } else {
+            exp.eval(&self.flow_cmd)?
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        };
 
         let run_path = PathBuf::from(exp.eval(&self.run_path)?);
         let _g = WorkDir::change(run_path.clone())
             .source_err(UvsReason::resource_error().into(), "source error")
             .with_context(&run_path)?;
-        do_gxl_run(cmd, &vars_dict, self.env_isolate, sender).await?;
+        for flow in flows {
+            let cmd = base.clone().with_flows(flow);
+            do_gxl_run(cmd, &vars_dict, self.env_isolate, sender.clone()).await?;
+        }
         action.finish();
         Ok(TaskValue::from((vars_dict, ExecOut::Action(action))))
     }

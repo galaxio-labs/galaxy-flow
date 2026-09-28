@@ -5,6 +5,18 @@ All notable changes to the Galaxy Flow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.14.0] - 2026-09-28
+
+### Added
+- **`gx.exists(flow: "...")` condition**: a new expression function (used in `if`, alongside `defined(${VAR})`) that reports whether a flow exists. It reads the flow names of the already-assembled space, so it is side-effect free, does not resolve externs and never touches the network; a missing flow returns `false` instead of an error. Accepts a bare name, a `mod.flow` qualified name, or a variable (`gx.exists(${P})`).
+- **`gx run <flow> --exists`**: a flow-existence probe for callers outside gx (scripts / upper-layer tools). Exits `0` when the requested flow(s) exist, `1` otherwise. It **loads the conf** (without executing any flow), so a conf that fails to load — including one whose extern modules are not cached — also yields `1`, with the reason printed on stderr.
+
+### Fixed
+- **`gx.run(flow: ...)` forwarding**: the `flow` argument was parsed but never applied, so the sub-run reused the outer flow; and the parser split the comma-separated value and concatenated it back with no separator. It now overrides the sub-run's flow, forwarding each comma-separated name in turn.
+
+### Documentation
+- Documented `gx.exists` and the `--exists` probe (GXL inner ability index, the `gx.run` `flow` note, and the CLI guide). `gx doc gx.exists` now resolves too.
+
 ## [v0.13.15] - 2026-09-18
 
 ### Added
