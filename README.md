@@ -62,7 +62,7 @@ curl -sSf https://get.warpparse.ai/inst-x.sh | bash -s -- gx
 curl -sSf https://get.warpparse.ai/inst-x.sh | bash -s -- gx alpha
 
 # custom install dir
-curl -sSf https://get.warpparse.ai/inst-x.sh | INSTALL_DIR=/usr/local/bin bash -s -- gx
+curl -sSf https://get.warpparse.ai/inst-x.sh | WP_INST_INSTALL_DIR=/usr/local/bin bash -s -- gx
 ```
 
 安装后验证：
