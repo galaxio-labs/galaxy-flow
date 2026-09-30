@@ -51,6 +51,7 @@ pub mod help;
 pub mod infra;
 pub mod runner;
 pub mod self_update;
+pub mod skills;
 pub mod types;
 pub use crate::loader::{GxLoader, get_parse_code};
 pub use model::*;

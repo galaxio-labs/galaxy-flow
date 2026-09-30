@@ -1,12 +1,12 @@
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use orion_accessor::addr::GitRepository;
 use orion_error::conversion::{ConvErr, SourceErr, SourceRawErr, ToStructError};
 
 use crate::GxLoader;
-use crate::cmd::gx_cmd::{AdmCmd, DocArgs, GxCmd, InitCmd, ModCmd, RunCmd, SelfCmd};
+use crate::cmd::gx_cmd::{AdmCmd, DocArgs, GxCmd, InitCmd, ModCmd, RunCmd, SelfCmd, SkillCmd};
 use crate::cmd::gxl_cmd::GFlowCmd;
 use crate::conf::load_gxl_config;
 use crate::const_val::gxl_const::CMD_ARG;
@@ -21,6 +21,7 @@ use crate::runner::GxlRunner;
 use crate::self_update::{
     CheckRequest, CheckResult, ReleaseChannel, SelfUpdateService, UpdateRequest,
 };
+use crate::skills::{InstallRequest, SkillPlatform, SkillService, SkillSource, SkillTarget};
 use crate::traits::Setter;
 use crate::util::diagnose::ai_diagnose;
 use crate::util::redirect::stop_redirect;
@@ -423,9 +424,9 @@ fn output_mode(cmd: &GxCmd) -> OutputMode {
 }
 
 async fn do_self_cmd(cmd: SelfCmd) -> RunResult<()> {
-    let svc = SelfUpdateService::new()?;
     match cmd {
         SelfCmd::Status => {
+            let svc = SelfUpdateService::new()?;
             let status = svc.status()?;
             println!("current_version={}", status.current_version);
             println!("install_dir={}", status.install_dir.display());
@@ -440,6 +441,7 @@ async fn do_self_cmd(cmd: SelfCmd) -> RunResult<()> {
             }
         }
         SelfCmd::Check(args) => {
+            let svc = SelfUpdateService::new()?;
             let channel = parse_channel(args.channel.as_str())?;
             let req = CheckRequest { channel };
             let out = svc.check(req).await?;
@@ -459,6 +461,7 @@ async fn do_self_cmd(cmd: SelfCmd) -> RunResult<()> {
             }
         }
         SelfCmd::Update(args) => {
+            let svc = SelfUpdateService::new()?;
             let channel = parse_channel(args.channel.as_str())?;
             let req = UpdateRequest {
                 channel,
@@ -477,14 +480,78 @@ async fn do_self_cmd(cmd: SelfCmd) -> RunResult<()> {
             }
         }
         SelfCmd::Rollback(args) => {
+            let svc = SelfUpdateService::new()?;
             let out = svc.rollback(args.backup_id.as_deref())?;
             println!("rollback=true");
             if let Some(id) = out.backup_id {
                 println!("backup_id={id}");
             }
         }
+        SelfCmd::Skill(cmd) => {
+            execute_skill(cmd)?;
+        }
     }
     Ok(())
+}
+
+/// `gx self skill` 的处理器。
+fn execute_skill(cmd: SkillCmd) -> RunResult<()> {
+    let svc = SkillService::new()?;
+    match cmd {
+        SkillCmd::Install(args) => {
+            let source = SkillSource::parse(&args.source, &args.git_ref)?;
+            let source_desc = source.describe();
+            let req = InstallRequest {
+                source,
+                skill: args.skill.clone(),
+                targets: parse_skill_targets(&args.target, &args.dir)?,
+                symlink: args.symlink,
+                yes: args.yes,
+            };
+            let report = svc.install(&req)?;
+            println!("Source:    {source_desc}");
+            println!("Name:      {}", report.name);
+            println!("Validated: {} SKILL.md", report.skill_files.len());
+            for loc in &report.installed {
+                println!("Installed: {}", loc.dir.display());
+                println!("Platform:  {}", loc.platform);
+            }
+        }
+        SkillCmd::List(args) => {
+            let source = SkillSource::parse(&args.source, &args.git_ref)?;
+            let names = svc.list(&source)?;
+            println!("Source: {}", source.describe());
+            if names.is_empty() {
+                println!("(no skills found)");
+            } else {
+                for name in names {
+                    println!("  {name}");
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 把 `--target` / `--dir` 解析成安装目标；`all` 展开为全部平台。
+fn parse_skill_targets(targets: &[String], dirs: &[PathBuf]) -> RunResult<Vec<SkillTarget>> {
+    let mut out = Vec::new();
+    for raw in targets {
+        if raw.trim().eq_ignore_ascii_case("all") {
+            out.extend(SkillPlatform::ALL.into_iter().map(SkillTarget::Platform));
+            continue;
+        }
+        let platform = SkillPlatform::parse(raw).ok_or_else(|| {
+            RunReason::Args
+                .to_err()
+                .with_detail(format!("--target={raw}, expected=codex|claude|zed|all"))
+        })?;
+        out.push(SkillTarget::Platform(platform));
+    }
+    for dir in dirs {
+        out.push(SkillTarget::Dir(dir.clone()));
+    }
+    Ok(out)
 }
 
 fn parse_channel(input: &str) -> RunResult<ReleaseChannel> {

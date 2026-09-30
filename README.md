@@ -47,21 +47,29 @@ Galaxy Flow 是基于 GXL 的开源自动化工作流引擎，提供自动化编
 
 ## 安装说明 / Installation
 
-### 1. 一键安装（推荐）
+### 一键安装（推荐）
+
+**稳定版**
 
 ```bash
 curl -sSf https://get.warpparse.ai/inst-x.sh | bash -s -- gx
 ```
 
-默认安装到：`$HOME/bin`
-
-可选参数：
+**测试版（beta 通道）**
 
 ```bash
-# alpha channel
-curl -sSf https://get.warpparse.ai/inst-x.sh | bash -s -- gx alpha
+curl -sSf https://get.warpparse.ai/inst-x.sh | bash -s -- gx beta
+```
 
-# custom install dir
+**开发版（alpha 通道）**
+
+```bash
+curl -sSf https://get.warpparse.ai/inst-x.sh | bash -s -- gx alpha
+```
+
+默认安装到：`$HOME/bin`。如需自定义安装目录：
+
+```bash
 curl -sSf https://get.warpparse.ai/inst-x.sh | WP_INST_INSTALL_DIR=/usr/local/bin bash -s -- gx
 ```
 
@@ -124,45 +132,81 @@ gx adm conf
 
 ## CLI Overview
 
-### gx
+主命令：
 
 ```bash
 gx <COMMAND>
 ```
 
-常用子命令：
-- `run`
-- `adm`
-- `init`
-- `mod`
-- `doc`
-- `check`
-- `self`
+一级命令：`run` / `adm` / `init` / `mod` / `doc` / `check` / `self`
 
-### gx run
+常用子命令：
+
+### `gx run` — 执行工作流
 
 ```bash
-gx run [OPTIONS] [FLOWS]...
+gx run                       # 不传 flow 时列出可用 flow / env
+gx run build -e debug        # 执行 build 流（环境 debug）
+gx run conf                  # 运行工作流中的 conf flow
+gx run test
 ```
 
 常用参数：`-e/--env`、`-c/--conf`、`-d/--debug`、`--log`、`-q/--quiet`、`--cmd-arg`、`--dryrun`、`--ai`（`--ai` 当前无效，见上方「Current Status」）
 
-## Self Update (`gx self`)
+### `gx adm` — 执行管理流
+
+```bash
+gx adm                       # 列出管理流
+gx adm conf                  # 运行管理流中的 conf flow
+gx adm v_patch               # 版本升级（patch）
+gx adm tag_alpha             # 打 alpha 标签（会 push 远程）
+```
+
+### `gx init` — 初始化
+
+```bash
+gx init env                  # 初始化用户级运行环境（~/.galaxy/，含 conf.toml）
+gx init project              # 本地初始化（_gal/work.gxl + _gal/adm.gxl）
+gx init project --path rust  # 从默认模板仓库的子目录拉取
+gx init project --repo <url> --path <subdir> --branch <b>   # 指定仓库 / 子目录 / 分支（--branch 与 --tag 互斥）
+```
+
+### `gx mod` — 模块管理
+
+```bash
+gx mod update                # 更新本地 _gal 声明的模块
+```
+
+### `gx doc` — 内置文档
+
+```bash
+gx doc                       # 列出主题
+gx doc gx                    # 查看主题（如 gx / gxl / gx.cmd）
+```
+
+### `gx check`
+
+```bash
+gx check                     # 打印当前运行环境信息
+```
+
+### `gx self` — 自升级
 
 ```bash
 gx self status
 gx self check --channel <stable|alpha|beta>
 gx self update --channel <stable|alpha|beta> [--to <version>] [--dry-run] [--force] --yes
 gx self rollback [--id <backup_id>]
+
+# agent skills
+gx self skill install           # 安装 gx skills（默认源 galaxio-labs/gx-skills）
+gx self skill list              # 列出可安装的 skills
 ```
 
-说明：
 - `rollback` 参数是 `--id`，不是 `--backup-id`
-- 更新包下载到临时目录，完成后清理
-- 成功更新后会替换当前安装目录中的 `gx`
-- 备份与状态目录：
-  - `~/.galaxy/self_update/state.json`
-  - `~/.galaxy/self_update/backups/<backup_id>/`
+- `gx self skill install [skill] [--source <owner/repo|url|dir>] [--ref <branch|tag>] [--target codex|claude|zed|all] [--dir <path>] [--symlink] [--yes]`：从仓库安装 agent skills（默认源 `galaxio-labs/gx-skills`），装前校验 `SKILL.md` frontmatter；`gx self skill list` 列出可安装项
+- 更新包下载到临时目录，完成后清理；成功更新后替换当前安装目录中的 `gx`
+- 备份与状态目录：`~/.galaxy/self_update/state.json`、`~/.galaxy/self_update/backups/<backup_id>/`
 - Manifest 来源：`https://raw.githubusercontent.com/galaxio-labs/get/main/updates/gx/{channel}/manifest.json`
 
 ## `gx.patch_file` Notes

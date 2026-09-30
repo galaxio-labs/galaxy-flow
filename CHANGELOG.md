@@ -5,6 +5,15 @@ All notable changes to the Galaxy Flow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.16.0] - 2026-09-30
+
+### Added
+- **`gx self skill install|list`**: install / list agent skills (default source `galaxio-labs/gx-skills`) into agent skill dirs (`codex` / `claude` / `zed` / custom). Shallow git clone plus built-in `SKILL.md` frontmatter validation; `install` supports `--source` / `--ref` / `--target` / `--dir` / `--symlink` / `--yes`.
+- The `gx` skill text now lives in its own repo — https://github.com/galaxio-labs/gx-skills (install with `gx self skill install`).
+
+### Changed
+- `gx self` only creates `~/.galaxy/self_update` state/lock when a self-update command actually runs (previously every `gx self ...` did).
+
 ## [v0.15.1] - 2026-09-30
 
 ### Dependencies
