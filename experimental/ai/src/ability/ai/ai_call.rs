@@ -5,7 +5,6 @@ use crate::ability::prelude::*;
 use crate::cmd::GxlCmd;
 use crate::util::OptionFrom;
 use async_trait::async_trait;
-use orion_error::ContextRecord;
 use orion_error::OperationContext;
 use orion_sec::sec::NoSecConv;
 use orion_sec::sec::SecFrom;
@@ -17,7 +16,7 @@ use orion_ai::{
     AiConfig, AiExecUnit, AiExecUnitBuilder, AiResult, ExecutionResult, FunctionCall,
     FunctionDefinition, FunctionExecutor, FunctionResult, GlobalFunctionRegistry,
 };
-use orion_error::ErrorConv;
+use orion_error::conversion::{ConvErr, SourceErr};
 
 use getset::{Getters, MutGetters, Setters};
 use orion_variate::vars::EnvDict;
@@ -78,7 +77,7 @@ impl GxlAiRegist {
                     //.with_tools(self.flow.clone())
                     .build()
                     .err_conv()
-                    .want("create ai exec unit")?,
+                    .doing("create ai exec unit")?,
             );
             self.exe_unit
                 .set(exec_unit)
@@ -119,7 +118,9 @@ impl FunctionExecutor for GxlAiRegist {
         let cmd = self.exe_cmd().get().cloned().expect("exe_cmd not exists");
         let cmd = cmd.with_flows(self.flow().clone());
         let vars = self.exe_vars().get().cloned().expect("exe_vars not exists");
-        let task_value = do_gxl_run(cmd, &vars, true, None).await.owe_net()?;
+        let task_value = do_gxl_run(cmd, &vars, true, None)
+            .await
+            .source_err(UvsReason::network_error().into(), "source error")?;
 
         if let (Some(call_result), Some(call_value)) = (
             task_value.vars.get(AI_CALL_RESULT),
@@ -156,7 +157,7 @@ impl FunctionExecutor for GxlAiRegist {
 impl AsyncRunnableTrait for GxlAiRegist {
     async fn async_exec(&self, ctx: ExecContext, vars: VarSpace) -> TaskResult {
         let fun_key = self.call_key();
-        let mut op_ctx = OperationContext::want("regist tool")
+        let mut op_ctx = OperationContext::doing("regist tool")
             .with_auto_log()
             .with_mod_path("gxl/ai");
         op_ctx.record("fun", fun_key.as_str());

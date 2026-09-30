@@ -8,7 +8,6 @@ use crate::{
     primitive::GxlAParams,
 };
 use async_trait::async_trait;
-use orion_error::ContextRecord;
 
 use crate::{
     components::{gxl_mod::meta::ModMeta, gxl_spc::GxlSpace},
@@ -82,11 +81,11 @@ impl Activity {
         //let mut map = def.export();
         let dict = vars_dict.merge_args_to(self.meta().params(), args)?;
 
-        let mut r_with = WithContext::want("run shell");
+        let mut r_with = WithContext::doing("run shell");
         let exp = EnvExpress::from_env_mix(dict.global().clone());
         let cmd = exp
             .eval(dict.must_get("executer")?.to_string().as_str())
-            .with(&r_with)?;
+            .with_context(&r_with)?;
         r_with.record("exec", cmd.clone());
 
         //let mut opt = dict.get("expect").clone();
@@ -101,7 +100,7 @@ impl Activity {
             &exp,
             dict.global()
         )
-        .with(&r_with)?;
+        .with_context(&r_with)?;
         action.finish();
         Ok(TaskValue::from((vars_dict, ExecOut::Action(action))))
     }
@@ -126,7 +125,7 @@ impl DependTrait<&GxlSpace> for Activity {
 mod tests {
     use std::path::Path;
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
     use orion_sec::sec::{SecFrom, SecValueType};
 
     use crate::{

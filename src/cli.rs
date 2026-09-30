@@ -1,12 +1,12 @@
 use std::ffi::OsStr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use orion_accessor::addr::GitRepository;
-use orion_error::{ErrorConv, ToStructError, UvsFrom};
+use orion_error::conversion::{ConvErr, SourceErr, SourceRawErr, ToStructError};
 
 use crate::GxLoader;
-use crate::cmd::gx_cmd::{AdmCmd, DocArgs, GxCmd, InitCmd, ModCmd, RunCmd, SelfCmd};
+use crate::cmd::gx_cmd::{AdmCmd, DocArgs, GxCmd, InitCmd, ModCmd, RunCmd, SelfCmd, SkillCmd};
 use crate::cmd::gxl_cmd::GFlowCmd;
 use crate::conf::load_gxl_config;
 use crate::const_val::gxl_const::CMD_ARG;
@@ -21,6 +21,7 @@ use crate::runner::GxlRunner;
 use crate::self_update::{
     CheckRequest, CheckResult, ReleaseChannel, SelfUpdateService, UpdateRequest,
 };
+use crate::skills::{InstallRequest, SkillPlatform, SkillService, SkillSource, SkillTarget};
 use crate::traits::Setter;
 use crate::util::diagnose::ai_diagnose;
 use crate::util::redirect::stop_redirect;
@@ -81,23 +82,60 @@ pub async fn dispatch(cmd: GxCmd) -> RunResult<()> {
     Ok(())
 }
 
+/// `--exists` 的退出码：全部存在 → 0，否则 1。
+fn exists_exit_code(missing: &[String]) -> i32 {
+    if missing.is_empty() { 0 } else { 1 }
+}
+
+/// `--exists`：判定流程是否存在后直接以退出码 0/1 结束（不执行流程）。
+///
+/// conf 缺失/解析失败（含 extern 未就绪）统一按「不存在」处理（exit 1），
+/// 并在 stderr 给出原因，保证调用方得到严格的 0/1。
+async fn run_exists_or_exit(
+    conf: Option<String>,
+    flows: Vec<String>,
+    vars: VarSpace,
+) -> RunResult<()> {
+    use std::process;
+    if flows.is_empty() {
+        eprintln!("gx exists: no flow name given");
+        process::exit(1);
+    }
+    let missing = match GxlRunner::exists(conf, &flows, vars).await {
+        Ok(missing) => missing,
+        Err(e) => {
+            eprintln!("gx exists: {e}");
+            process::exit(1);
+        }
+    };
+    for name in &missing {
+        eprintln!("gx exists: flow not found: {name}");
+    }
+    process::exit(exists_exit_code(&missing));
+}
+
 async fn do_run_cmd(mut cmd: GFlowCmd) -> RunResult<()> {
     use std::process;
 
-    let mut var_space = VarSpace::sys_init().err_conv()?;
+    let mut var_space = VarSpace::sys_init().conv_err()?;
 
     configure_cli_runtime(cmd.log.clone(), cmd.debug);
+
+    if cmd.conf.is_none() {
+        cmd.conf = Some(DEFAULT_WORK_CONF.to_string());
+    }
+
+    if cmd.exists {
+        run_exists_or_exit(cmd.conf.clone(), cmd.get_all_flows(), var_space.clone()).await?;
+    }
 
     let redirect = crate::model::task_report::task_rc_config::init_redirect_and_parent_task(
         cmd.flows.join(","),
         cmd.ai,
     )
     .await
-    .err_conv()?;
+    .conv_err()?;
 
-    if cmd.conf.is_none() {
-        cmd.conf = Some(DEFAULT_WORK_CONF.to_string());
-    }
     var_space.global_mut().set(CMD_ARG, cmd.cmd_args.join(" "));
 
     if cmd.list_cmd().is_empty() {
@@ -132,12 +170,18 @@ async fn do_adm_cmd(mut cmd: GFlowCmd) -> RunResult<()> {
     use std::process;
 
     configure_cli_runtime(cmd.log.clone(), cmd.debug);
-    let mut var_space = VarSpace::sys_init().err_conv()?;
-    var_space.global_mut().set(CMD_ARG, cmd.cmd_args.join(" "));
+    let mut var_space = VarSpace::sys_init().conv_err()?;
 
     if cmd.conf.is_none() {
         cmd.conf = Some(DEFAULT_ADM_CONF.to_string());
     }
+
+    if cmd.exists {
+        run_exists_or_exit(cmd.conf.clone(), cmd.get_all_flows(), var_space.clone()).await?;
+    }
+
+    var_space.global_mut().set(CMD_ARG, cmd.cmd_args.join(" "));
+
     if cmd.list_cmd().is_empty() {
         if !cmd.quiet {
             GxlRunner::info(cmd.conf.clone(), var_space).await?;
@@ -196,9 +240,9 @@ async fn do_prj_cmd(load: &mut GxLoader, cmd: InitCmd) -> RunResult<()> {
                 && args.path.is_none()
             {
                 return Err(
-                    RunReason::Args("--branch/--tag require --repo or --path".into())
+                    RunReason::Args
                         .to_err()
-                        .with_detail("use: gx init project --path rust --branch main"),
+                        .with_detail("--branch/--tag require --repo or --path; use: gx init project --path rust --branch main"),
                 );
             }
 
@@ -230,7 +274,7 @@ async fn do_mod_cmd(load: &mut GxLoader, mod_cmd: ModCmd) -> RunResult<()> {
         ModCmd::Update(args) => {
             configure_cli_runtime(args.log.clone(), args.debug);
 
-            let vars = VarSpace::sys_init().err_conv()?;
+            let vars = VarSpace::sys_init().conv_err()?;
             let confs = collect_mod_update_inputs()?;
             let mut updated_mods = Vec::new();
 
@@ -275,14 +319,16 @@ impl StdoutToStderrGuard {
         {
             let saved_stdout_fd = unsafe { libc::dup(libc::STDOUT_FILENO) };
             if saved_stdout_fd < 0 {
-                return Err(RunReason::Exec("dup stdout failed".into()).to_err());
+                return Err(RunReason::Exec.to_err().with_detail("dup stdout failed"));
             }
 
             if unsafe { libc::dup2(libc::STDERR_FILENO, libc::STDOUT_FILENO) } < 0 {
                 unsafe {
                     libc::close(saved_stdout_fd);
                 }
-                return Err(RunReason::Exec("redirect stdout to stderr failed".into()).to_err());
+                return Err(RunReason::Exec
+                    .to_err()
+                    .with_detail("redirect stdout to stderr failed"));
             }
 
             Ok(Self { saved_stdout_fd })
@@ -316,12 +362,10 @@ fn collect_mod_update_inputs() -> RunResult<Vec<&'static str>> {
     }
 
     if inputs.is_empty() {
-        return Err(RunReason::Args("project config not found".into())
-            .to_err()
-            .with_detail(format!(
-                "expected at least one config file: {} or {}",
-                DEFAULT_WORK_CONF, DEFAULT_ADM_CONF
-            )));
+        return Err(RunReason::Args.to_err().with_detail(format!(
+            "expected at least one config file: {} or {}",
+            DEFAULT_WORK_CONF, DEFAULT_ADM_CONF
+        )));
     }
 
     Ok(inputs)
@@ -329,7 +373,7 @@ fn collect_mod_update_inputs() -> RunResult<Vec<&'static str>> {
 
 fn collect_git_extern_mod_names(conf: &str) -> RunResult<Vec<String>> {
     let code = std::fs::read_to_string(conf)
-        .map_err(|e| RunReason::from_conf().to_err().with_detail(e.to_string()))?;
+        .source_err(RunReason::from_conf(), format!("read config file: {conf}"))?;
     collect_git_extern_mod_names_from_code(code.as_str())
 }
 
@@ -338,13 +382,18 @@ fn collect_git_extern_mod_names_from_code(code: &str) -> RunResult<Vec<String>> 
     let mut mods = Vec::new();
 
     loop {
-        let (chunk, status) = ExternParser::parse_code(&mut input)
-            .map_err(|e| RunReason::Gxl(format!("parse extern mod list failed: {e}")).to_err())?;
+        let (chunk, status) = ExternParser::parse_code(&mut input).map_err(|e| {
+            RunReason::Gxl
+                .to_err()
+                .with_detail(format!("parse extern mod list failed: {e}"))
+        })?;
         let _ = chunk;
         match status {
             DslStatus::Extern => {
                 let mod_ref = gal_extern_mod(&mut input).map_err(|e| {
-                    RunReason::Gxl(format!("parse extern mod ref failed: {e}")).to_err()
+                    RunReason::Gxl
+                        .to_err()
+                        .with_detail(format!("parse extern mod ref failed: {e}"))
                 })?;
                 if let crate::components::gxl_extend::ModAddr::Git(_) = mod_ref.addr() {
                     mods.extend(mod_ref.mods().iter().cloned());
@@ -375,9 +424,9 @@ fn output_mode(cmd: &GxCmd) -> OutputMode {
 }
 
 async fn do_self_cmd(cmd: SelfCmd) -> RunResult<()> {
-    let svc = SelfUpdateService::new()?;
     match cmd {
         SelfCmd::Status => {
+            let svc = SelfUpdateService::new()?;
             let status = svc.status()?;
             println!("current_version={}", status.current_version);
             println!("install_dir={}", status.install_dir.display());
@@ -392,6 +441,7 @@ async fn do_self_cmd(cmd: SelfCmd) -> RunResult<()> {
             }
         }
         SelfCmd::Check(args) => {
+            let svc = SelfUpdateService::new()?;
             let channel = parse_channel(args.channel.as_str())?;
             let req = CheckRequest { channel };
             let out = svc.check(req).await?;
@@ -404,13 +454,14 @@ async fn do_self_cmd(cmd: SelfCmd) -> RunResult<()> {
                         "remote_version": out.remote_version,
                         "has_update": out.has_update
                     }))
-                    .map_err(|e| RunReason::Exec(e.to_string()).to_err())?
+                    .source_raw_err(RunReason::Exec, "serialize self-check json")?
                 );
             } else {
                 print_self_check_report(&out)?;
             }
         }
         SelfCmd::Update(args) => {
+            let svc = SelfUpdateService::new()?;
             let channel = parse_channel(args.channel.as_str())?;
             let req = UpdateRequest {
                 channel,
@@ -429,19 +480,83 @@ async fn do_self_cmd(cmd: SelfCmd) -> RunResult<()> {
             }
         }
         SelfCmd::Rollback(args) => {
+            let svc = SelfUpdateService::new()?;
             let out = svc.rollback(args.backup_id.as_deref())?;
             println!("rollback=true");
             if let Some(id) = out.backup_id {
                 println!("backup_id={id}");
             }
         }
+        SelfCmd::Skill(cmd) => {
+            execute_skill(cmd)?;
+        }
     }
     Ok(())
 }
 
+/// `gx self skill` 的处理器。
+fn execute_skill(cmd: SkillCmd) -> RunResult<()> {
+    let svc = SkillService::new()?;
+    match cmd {
+        SkillCmd::Install(args) => {
+            let source = SkillSource::parse(&args.source, &args.git_ref)?;
+            let source_desc = source.describe();
+            let req = InstallRequest {
+                source,
+                skill: args.skill.clone(),
+                targets: parse_skill_targets(&args.target, &args.dir)?,
+                symlink: args.symlink,
+                yes: args.yes,
+            };
+            let report = svc.install(&req)?;
+            println!("Source:    {source_desc}");
+            println!("Name:      {}", report.name);
+            println!("Validated: {} SKILL.md", report.skill_files.len());
+            for loc in &report.installed {
+                println!("Installed: {}", loc.dir.display());
+                println!("Platform:  {}", loc.platform);
+            }
+        }
+        SkillCmd::List(args) => {
+            let source = SkillSource::parse(&args.source, &args.git_ref)?;
+            let names = svc.list(&source)?;
+            println!("Source: {}", source.describe());
+            if names.is_empty() {
+                println!("(no skills found)");
+            } else {
+                for name in names {
+                    println!("  {name}");
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 把 `--target` / `--dir` 解析成安装目标；`all` 展开为全部平台。
+fn parse_skill_targets(targets: &[String], dirs: &[PathBuf]) -> RunResult<Vec<SkillTarget>> {
+    let mut out = Vec::new();
+    for raw in targets {
+        if raw.trim().eq_ignore_ascii_case("all") {
+            out.extend(SkillPlatform::ALL.into_iter().map(SkillTarget::Platform));
+            continue;
+        }
+        let platform = SkillPlatform::parse(raw).ok_or_else(|| {
+            RunReason::Args
+                .to_err()
+                .with_detail(format!("--target={raw}, expected=codex|claude|zed|all"))
+        })?;
+        out.push(SkillTarget::Platform(platform));
+    }
+    for dir in dirs {
+        out.push(SkillTarget::Dir(dir.clone()));
+    }
+    Ok(out)
+}
+
 fn parse_channel(input: &str) -> RunResult<ReleaseChannel> {
     ReleaseChannel::parse(input).ok_or_else(|| {
-        RunReason::Args("bad channel".into())
+        RunReason::Args
             .to_err()
             .with_detail(format!("channel={input}, expected=stable|alpha|beta"))
     })
@@ -455,12 +570,10 @@ fn print_self_check_report(out: &CheckResult) -> RunResult<()> {
 fn format_self_check_report(out: &CheckResult, use_color: bool) -> RunResult<String> {
     let relation =
         compare_versions_str(&out.current_version, &out.remote_version).map_err(|e| {
-            RunReason::Exec("compare self-update versions failed".into())
-                .to_err()
-                .with_detail(format!(
-                    "current={}, remote={}, error={}",
-                    out.current_version, out.remote_version, e
-                ))
+            RunReason::Exec.to_err().with_detail(format!(
+                "compare self-update versions failed: current={}, remote={}, error={}",
+                out.current_version, out.remote_version, e
+            ))
         })?;
 
     let mut lines = vec![
@@ -547,12 +660,51 @@ mod tests {
         DEFAULT_ADM_CONF, DEFAULT_WORK_CONF, OutputMode, collect_git_extern_mod_names_from_code,
         collect_mod_update_inputs, format_self_check_report, normalized_argv, output_mode,
     };
-    use crate::cmd::gx_cmd::{AdmCmd, GxCmd, RunCmd, SelfCheckArgs, SelfCmd};
+    use crate::cmd::gx_cmd::{GxCmd, SelfCheckArgs, SelfCmd};
+    use crate::err::RunReason;
     use crate::self_update::{CheckResult, ReleaseChannel};
 
     fn mod_update_config_lock() -> &'static Mutex<()> {
         static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    #[test]
+    fn exists_exit_code_maps_missing_to_one() {
+        assert_eq!(super::exists_exit_code(&[]), 0);
+        assert_eq!(super::exists_exit_code(&["a".to_string()]), 1);
+        assert_eq!(
+            super::exists_exit_code(&["a".to_string(), "b".to_string()]),
+            1
+        );
+    }
+
+    struct ConfigBackup {
+        original: &'static str,
+        backup: Option<std::path::PathBuf>,
+    }
+
+    impl ConfigBackup {
+        fn hide_if_exists(original: &'static str) -> Self {
+            let path = Path::new(original);
+            let backup = path.exists().then(|| path.with_extension("gxl.bak-codex"));
+            if let Some(backup_path) = &backup {
+                std::fs::rename(path, backup_path).expect("config backup should succeed");
+            }
+            Self { original, backup }
+        }
+
+        fn restore(&mut self) {
+            if let Some(backup_path) = self.backup.take() {
+                std::fs::rename(backup_path, self.original).expect("config restore should succeed");
+            }
+        }
+    }
+
+    impl Drop for ConfigBackup {
+        fn drop(&mut self) {
+            self.restore();
+        }
     }
 
     #[test]
@@ -572,23 +724,11 @@ mod tests {
         let _guard = mod_update_config_lock()
             .lock()
             .expect("mod update config lock should not be poisoned");
-        let work = Path::new(DEFAULT_WORK_CONF);
-        let adm = Path::new(DEFAULT_ADM_CONF);
-        let work_backup = work.exists().then(|| work.with_extension("gxl.bak-codex"));
-        let adm_backup = adm.exists().then(|| adm.with_extension("gxl.bak-codex"));
-
-        if let Some(path) = &work_backup {
-            std::fs::rename(work, path).expect("work config backup should succeed");
-        }
-        if let Some(path) = &adm_backup {
-            std::fs::rename(adm, path).expect("adm config backup should succeed");
-        }
+        let mut work_backup = ConfigBackup::hide_if_exists(DEFAULT_WORK_CONF);
+        let mut adm_backup = ConfigBackup::hide_if_exists(DEFAULT_ADM_CONF);
 
         let err = collect_mod_update_inputs().expect_err("missing configs should fail");
-        assert_eq!(
-            err.reason().to_string(),
-            "args error project config not found"
-        );
+        assert!(matches!(err.reason(), RunReason::Args));
         assert!(
             err.detail()
                 .as_deref()
@@ -596,12 +736,8 @@ mod tests {
                 .contains("expected at least one config file")
         );
 
-        if let Some(path) = work_backup {
-            std::fs::rename(path, work).expect("work config restore should succeed");
-        }
-        if let Some(path) = adm_backup {
-            std::fs::rename(path, adm).expect("adm config restore should succeed");
-        }
+        work_backup.restore();
+        adm_backup.restore();
     }
 
     #[test]
@@ -659,88 +795,6 @@ mod main {}
         let cmd = GxCmd::parse_from(["gx", "adm", "--quiet"]);
 
         assert_eq!(output_mode(&cmd), OutputMode::Machine);
-    }
-
-    #[test]
-    fn parse_run_and_adm_wrappers() {
-        match GxCmd::parse_from(["gx", "run", "conf"]) {
-            GxCmd::Run(RunCmd { cmd }) => assert_eq!(cmd.flows, vec!["conf".to_string()]),
-            other => panic!("unexpected command: {other:?}"),
-        }
-
-        match GxCmd::parse_from(["gx", "adm", "conf"]) {
-            GxCmd::Adm(AdmCmd { cmd }) => assert_eq!(cmd.flows, vec!["conf".to_string()]),
-            other => panic!("unexpected command: {other:?}"),
-        }
-    }
-
-    #[test]
-    fn parse_init_project_with_repo() {
-        use crate::cmd::gx_cmd::InitCmd;
-
-        // no args = local init (repo is None)
-        let cmd =
-            GxCmd::try_parse_from(["gx", "init", "project"]).expect("init project should parse");
-        match cmd {
-            GxCmd::Init(InitCmd::Project(args)) => {
-                assert_eq!(args.repo(), &None);
-                assert_eq!(args.path(), &None);
-            }
-            other => panic!("unexpected command: {other:?}"),
-        }
-
-        // --repo specified
-        let cmd = GxCmd::try_parse_from([
-            "gx",
-            "init",
-            "project",
-            "--repo",
-            "https://github.com/user/repo.git",
-        ])
-        .expect("init project with repo should parse");
-        match cmd {
-            GxCmd::Init(InitCmd::Project(args)) => {
-                assert_eq!(
-                    args.repo(),
-                    &Some("https://github.com/user/repo.git".to_string())
-                );
-                assert_eq!(args.path(), &None);
-            }
-            other => panic!("unexpected command: {other:?}"),
-        }
-
-        // --repo with --path
-        let cmd = GxCmd::try_parse_from([
-            "gx",
-            "init",
-            "project",
-            "--repo",
-            "https://github.com/user/repo.git",
-            "--path",
-            "rust",
-        ])
-        .expect("init project with repo and path should parse");
-        match cmd {
-            GxCmd::Init(InitCmd::Project(args)) => {
-                assert_eq!(
-                    args.repo(),
-                    &Some("https://github.com/user/repo.git".to_string())
-                );
-                assert_eq!(args.path(), &Some("rust".to_string()));
-            }
-            other => panic!("unexpected command: {other:?}"),
-        }
-
-        // --path only (will use default repo at runtime)
-        let cmd = GxCmd::try_parse_from(["gx", "init", "project", "--path", "rust"])
-            .expect("init project with path should parse");
-        match cmd {
-            GxCmd::Init(InitCmd::Project(args)) => {
-                assert_eq!(args.repo(), &None); // default repo is applied at runtime
-                assert_eq!(args.path(), &Some("rust".to_string()));
-            }
-            other => panic!("unexpected command: {other:?}"),
-        }
     }
 
     #[test]

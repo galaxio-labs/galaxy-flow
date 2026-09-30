@@ -1,6 +1,18 @@
-# evaluator 模块说明
+# evaluator 模块结构
 
-本页是入口说明，结构事实请以 `docs/structure/evaluator-actual.md` 为准。
+## 模块定位
 
-- 模块职责：环境表达式渲染与变量解析。
-- 对外导出：`EnvExpress`、`VarParser`。
+`src/evaluator` 当前只承载环境表达式渲染能力，不是独立的流程执行器目录。
+
+## 实际文件结构
+
+```text
+src/evaluator/
+├── mod.rs
+└── env_exp.rs
+```
+
+## 对外导出（`src/evaluator/mod.rs`）
+
+- `EnvExpress`
+- `VarParser`

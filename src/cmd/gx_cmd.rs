@@ -1,5 +1,6 @@
 use clap::{ArgAction, Args, Parser, Subcommand};
 use derive_getters::Getters;
+use std::path::PathBuf;
 
 use crate::cmd::gxl_cmd::GFlowCmd;
 
@@ -75,6 +76,51 @@ pub enum SelfCmd {
     Check(SelfCheckArgs),
     Update(SelfUpdateArgs),
     Rollback(SelfRollbackArgs),
+    /// install / list agent skills
+    #[command(name = "skill", subcommand)]
+    Skill(SkillCmd),
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum SkillCmd {
+    /// install skills into agent skill dirs
+    Install(SkillInstallArgs),
+    /// list installable skills from the source repo
+    List(SkillListArgs),
+}
+
+#[derive(Debug, Args, Clone, Getters)]
+pub struct SkillInstallArgs {
+    /// skill name under `skills/`; omit to install the whole collection
+    pub skill: Option<String>,
+    /// source: `owner/repo`, git URL, or a local directory
+    #[arg(long, default_value = "galaxio-labs/gx-skills")]
+    pub source: String,
+    /// branch or tag
+    #[arg(long = "ref", default_value = "main")]
+    pub git_ref: String,
+    /// target platform: `codex|claude|zed|all`, repeatable
+    #[arg(long, action = ArgAction::Append)]
+    pub target: Vec<String>,
+    /// custom target dir, repeatable
+    #[arg(long, action = ArgAction::Append)]
+    pub dir: Vec<PathBuf>,
+    /// symlink instead of copy (local source only)
+    #[arg(long, action = ArgAction::SetTrue, default_value = "false")]
+    pub symlink: bool,
+    /// skip overwrite confirmation
+    #[arg(long, action = ArgAction::SetTrue, default_value = "false")]
+    pub yes: bool,
+}
+
+#[derive(Debug, Args, Clone, Getters)]
+pub struct SkillListArgs {
+    /// source: `owner/repo`, git URL, or a local directory
+    #[arg(long, default_value = "galaxio-labs/gx-skills")]
+    pub source: String,
+    /// branch or tag
+    #[arg(long = "ref", default_value = "main")]
+    pub git_ref: String,
 }
 
 #[derive(Debug, Args, Clone, Getters)]
@@ -140,7 +186,7 @@ pub struct PrjArgs {
 mod tests {
     use clap::Parser;
 
-    use super::{AdmCmd, GxCmd, InitCmd, ModCmd, RunCmd, SelfCmd};
+    use super::{AdmCmd, GxCmd, InitCmd, ModCmd, RunCmd, SelfCmd, SkillCmd};
 
     #[test]
     fn parse_doc_topic() {
@@ -225,11 +271,67 @@ mod tests {
 
     #[test]
     fn parse_init_project() {
+        // no args = local init (repo/path are None)
         let cmd =
             GxCmd::try_parse_from(["gx", "init", "project"]).expect("init project should parse");
-
         match cmd {
-            GxCmd::Init(InitCmd::Project(_args)) => {}
+            GxCmd::Init(InitCmd::Project(args)) => {
+                assert_eq!(args.repo(), &None);
+                assert_eq!(args.path(), &None);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+
+        // --repo only
+        let cmd = GxCmd::try_parse_from([
+            "gx",
+            "init",
+            "project",
+            "--repo",
+            "https://github.com/user/repo.git",
+        ])
+        .expect("init project with repo should parse");
+        match cmd {
+            GxCmd::Init(InitCmd::Project(args)) => {
+                assert_eq!(
+                    args.repo(),
+                    &Some("https://github.com/user/repo.git".to_string())
+                );
+                assert_eq!(args.path(), &None);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+
+        // --repo with --path
+        let cmd = GxCmd::try_parse_from([
+            "gx",
+            "init",
+            "project",
+            "--repo",
+            "https://github.com/user/repo.git",
+            "--path",
+            "rust",
+        ])
+        .expect("init project with repo and path should parse");
+        match cmd {
+            GxCmd::Init(InitCmd::Project(args)) => {
+                assert_eq!(
+                    args.repo(),
+                    &Some("https://github.com/user/repo.git".to_string())
+                );
+                assert_eq!(args.path(), &Some("rust".to_string()));
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+
+        // --path only (default repo is applied at runtime)
+        let cmd = GxCmd::try_parse_from(["gx", "init", "project", "--path", "rust"])
+            .expect("init project with path should parse");
+        match cmd {
+            GxCmd::Init(InitCmd::Project(args)) => {
+                assert_eq!(args.repo(), &None);
+                assert_eq!(args.path(), &Some("rust".to_string()));
+            }
             other => panic!("unexpected command: {other:?}"),
         }
     }
@@ -242,6 +344,61 @@ mod tests {
             GxCmd::SelfUpdate(SelfCmd::Check(args)) => {
                 assert_eq!(args.channel, "stable");
                 assert!(!args.json);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_self_skill_install_defaults() {
+        let cmd = GxCmd::try_parse_from(["gx", "self", "skill", "install"]).expect("parse");
+        match cmd {
+            GxCmd::SelfUpdate(SelfCmd::Skill(SkillCmd::Install(args))) => {
+                assert_eq!(args.source, "galaxio-labs/gx-skills");
+                assert_eq!(args.git_ref, "main");
+                assert!(args.skill.is_none());
+                assert!(args.target.is_empty());
+                assert!(args.dir.is_empty());
+                assert!(!args.symlink);
+                assert!(!args.yes);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_self_skill_install_flags() {
+        let cmd = GxCmd::try_parse_from([
+            "gx",
+            "self",
+            "skill",
+            "install",
+            "gx-engineering",
+            "--target",
+            "zed",
+            "--dir",
+            "/tmp/skills",
+            "--yes",
+        ])
+        .expect("parse");
+        match cmd {
+            GxCmd::SelfUpdate(SelfCmd::Skill(SkillCmd::Install(args))) => {
+                assert_eq!(args.skill.as_deref(), Some("gx-engineering"));
+                assert_eq!(args.target, vec!["zed".to_string()]);
+                assert_eq!(args.dir, vec![std::path::PathBuf::from("/tmp/skills")]);
+                assert!(args.yes);
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parse_self_skill_list() {
+        let cmd =
+            GxCmd::try_parse_from(["gx", "self", "skill", "list", "--ref", "v1"]).expect("parse");
+        match cmd {
+            GxCmd::SelfUpdate(SelfCmd::Skill(SkillCmd::List(args))) => {
+                assert_eq!(args.git_ref, "v1")
             }
             other => panic!("unexpected command: {other:?}"),
         }

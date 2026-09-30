@@ -90,7 +90,7 @@ pub fn gal_act_head(act: &'static str, input: &mut &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::parser::inner::run_gxl;
 

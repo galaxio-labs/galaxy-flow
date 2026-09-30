@@ -2,14 +2,14 @@ extern crate galaxy_flow;
 
 use galaxy_flow::GxLoader;
 use galaxy_flow::cmd::GxlCmd;
+use galaxy_flow::err::RunResult;
 use galaxy_flow::execution::VarSpace;
 use galaxy_flow::infra::once_init_log;
-use galaxy_flow::types::AnyResult;
 use log::info;
-use orion_error::TestAssert;
+use orion_error::dev::testing::TestAssert;
 
 #[tokio::test]
-async fn gxl_normal_test() -> AnyResult<()> {
+async fn gxl_normal_test() -> RunResult<()> {
     once_init_log();
     let vars = VarSpace::sys_init().assert();
     let loader = GxLoader::new();

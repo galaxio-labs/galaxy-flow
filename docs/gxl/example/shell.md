@@ -20,6 +20,10 @@ mod main {
             shell: "./demo.sh",
             out_var: "SYS_OUT");
 
+        gx.shell(
+            shell: "PYTHONUNBUFFERED=1 ansible-playbook site.yml -vv",
+            stream: "true");
+
         gx.echo("what:${SYS_OUT}");
 
         gx.read_file(file: "./var_list.yml", name: "DATA");
@@ -53,7 +57,7 @@ mod main {
 
 ## 说明
 
-这个示例展示了如何使用 `gx.shell` 命令执行 shell 脚本。在 `conf` 流程中，首先从 `var.yml` 文件读取数据，然后使用 `gx.shell` 执行 `demo.sh` 脚本，并通过 `arg_file` 参数传递 `var.json` 文件。还展示了如何在循环中执行 shell 脚本，并处理列表和对象数据。
+这个示例展示了如何使用 `gx.shell` 命令执行 shell 脚本。在 `conf` 流程中，首先从 `var.yml` 文件读取数据，然后使用 `gx.shell` 执行 `demo.sh` 脚本，并通过 `arg_file` 参数传递 `var.json` 文件。示例同时展示了 `stream: "true"` 的用法，适合 ansible 这类长时间命令实时输出。还展示了如何在循环中执行 shell 脚本，并处理列表和对象数据。
 
 ```mermaid
 graph TD

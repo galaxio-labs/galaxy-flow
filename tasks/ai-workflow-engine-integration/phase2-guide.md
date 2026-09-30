@@ -1,5 +1,11 @@
 # 第二期实施指导文档
 
+> **⚠️ 当前状态：本文档为历史设计与实施计划，其中描述的功能已下线**
+>
+> AI 能力目前在 galaxy-flow 中不可用：`orion-ai` 依赖在 `Cargo.toml` 中被注释；`gx.ai_fun` / `gx.ai_chat` 的解析与执行模块未编译（`src/parser/inner/mod.rs`、`src/ability/ai/mod.rs` 中相关 `pub mod` 已注释）；`ai_diagnose` 是 no-op。
+>
+> 因此文中涉及的 `examples/ai_fun_tools/` 等示例目录并未创建，相关命令在当前版本无法执行；旧的 `gflow` 二进制已统一为 `gx`。
+
 ## 概述
 
 第二期实施目标是增强 AI 任务能力，实现工具调用和 Git 操作功能。本文档提供了详细的实施指导、技术要点和最佳实践。
@@ -511,7 +517,7 @@ mod main {
 
 ### 1. Git 状态检查
 ```bash
-gflow -f examples/ai_fun_tools/_gal/work.gxl git_status_check
+gx run git_status_check
 ```
 
 **预期输出**：
@@ -521,7 +527,7 @@ gflow -f examples/ai_fun_tools/_gal/work.gxl git_status_check
 
 ### 2. 智能提交
 ```bash
-gflow -f examples/ai_fun_tools/_gal/work.gxl smart_commit
+gx run smart_commit
 ```
 
 **预期输出**：
@@ -531,7 +537,7 @@ gflow -f examples/ai_fun_tools/_gal/work.gxl smart_commit
 
 ### 3. 差异分析
 ```bash
-gflow -f examples/ai_fun_tools/_gal/work.gxl git_diff_analysis
+gx run git_diff_analysis
 ```
 
 **预期输出**：
@@ -578,7 +584,7 @@ A: 在 GitFunctionExecutor 中实现新的执行方法，并在 supported_functi
 A: 系统会提供详细的错误信息，包括失败原因和可能的解决方案。
 
 ### Q: 如何调试工具调用？
-A: 使用 `gflow -d 1` 启用调试日志，查看详细的执行过程。
+A: 使用 `gx run -d 1 <flow>` 启用调试日志，查看详细的执行过程。
 ```
 
 ## 技术要点

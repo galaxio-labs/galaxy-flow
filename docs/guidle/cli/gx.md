@@ -39,6 +39,9 @@ gx init project --repo https://github.com/user/repo.git --branch dev
 # 运行工作流
 gx run conf
 
+# 仅判断流程是否存在（不执行）：存在 exit 0，不存在 exit 1
+gx run localize --exists
+
 # 运行管理流
 gx adm conf
 

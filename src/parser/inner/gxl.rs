@@ -13,8 +13,7 @@ pub fn gal_run(input: &mut &str) -> Result<GxRun> {
         if key == "env" {
             builder.env_conf(one.1);
         } else if key == "flow" {
-            let flows = one.1.split(",").map(String::from).collect();
-            builder.flow_cmd(flows);
+            builder.flow_cmd(one.1);
         } else if key == "conf" {
             builder.gxl_path(one.1);
         } else if key == "local" {
@@ -35,7 +34,7 @@ pub fn gal_run(input: &mut &str) -> Result<GxRun> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::infra::once_init_log;
 
@@ -48,6 +47,6 @@ mod tests {
              gx.run ( local : "${PRJ_ROOT}", env : "dev" , flow : "conf,test" , isolate : "true" ) ;"#;
         let obj = gal_run(&mut data).assert();
         assert_eq!(obj.env_conf(), "dev");
-        assert_eq!(obj.env_conf(), "dev");
+        assert_eq!(obj.flow_cmd(), "conf,test");
     }
 }

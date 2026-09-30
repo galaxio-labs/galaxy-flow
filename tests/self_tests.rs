@@ -2,13 +2,13 @@ extern crate galaxy_flow;
 
 use galaxy_flow::GxLoader;
 use galaxy_flow::cmd::GxlCmd;
+use galaxy_flow::err::RunResult;
 use galaxy_flow::execution::VarSpace;
 use galaxy_flow::infra::once_init_log;
-use galaxy_flow::types::AnyResult;
-use orion_error::TestAssert;
+use orion_error::dev::testing::TestAssert;
 
 #[tokio::test]
-async fn prj_conf() -> AnyResult<()> {
+async fn prj_conf() -> RunResult<()> {
     once_init_log();
     let loader = GxLoader::new();
 
@@ -20,7 +20,7 @@ async fn prj_conf() -> AnyResult<()> {
         .assert();
     spc.exec(
         GxlCmd::default().with_flows("conf".into()),
-        VarSpace::sys_init()?,
+        VarSpace::sys_init().assert(),
         None,
     )
     .await?;

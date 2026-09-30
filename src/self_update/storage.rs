@@ -3,7 +3,9 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use orion_error::{ErrorOwe, ErrorWith, ToStructError};
+use orion_error::conversion::ToStructError;
+use orion_error::conversion::{ErrorWith, SourceErr, SourceRawErr};
+use orion_error::reason::UnifiedReason as UvsReason;
 
 use crate::err::{RunReason, RunResult};
 
@@ -34,9 +36,9 @@ pub struct SelfUpdateStorage {
 impl SelfUpdateStorage {
     pub fn new() -> RunResult<Self> {
         let home = dirs::home_dir().ok_or_else(|| {
-            RunReason::Args("cannot resolve home directory".into())
+            RunReason::Args
                 .to_err()
-                .with_detail("self update needs home dir")
+                .with_detail("cannot resolve home directory: self update needs home dir")
         })?;
         let root = home.join(GALAXY_DIR).join(SELF_UPDATE_DIR);
         let this = Self { root };
@@ -59,9 +61,9 @@ impl SelfUpdateStorage {
     pub fn ensure_layout(&self) -> RunResult<()> {
         let backups = self.backups_dir();
         fs::create_dir_all(&backups)
-            .owe_res()
-            .want("create self update layout")
-            .with(("path", backups.as_path()))?;
+            .source_err(UvsReason::resource_error().into(), "source error")
+            .doing("create self update layout")
+            .with_context(("path", backups.as_path()))?;
         Ok(())
     }
 
@@ -71,25 +73,25 @@ impl SelfUpdateStorage {
             return Ok(SelfUpdateState::default());
         }
         let content = fs::read_to_string(&path)
-            .owe_res()
-            .want("read self update state")
-            .with(("path", path.as_path()))?;
+            .source_err(UvsReason::resource_error().into(), "source error")
+            .doing("read self update state")
+            .with_context(("path", path.as_path()))?;
         serde_json::from_str::<SelfUpdateState>(&content)
-            .owe_data()
-            .want("parse self update state")
-            .with(("path", path.as_path()))
+            .source_raw_err(RunReason::data_error(), "parse self update state")
+            .doing("parse self update state")
+            .with_context(("path", path.as_path()))
     }
 
     pub fn save_state(&self, state: &SelfUpdateState) -> RunResult<()> {
         let path = self.state_path();
         let content = serde_json::to_string_pretty(state)
-            .owe_data()
-            .want("serialize self update state")
-            .with(("path", path.as_path()))?;
+            .source_raw_err(RunReason::data_error(), "serialize self update state")
+            .doing("serialize self update state")
+            .with_context(("path", path.as_path()))?;
         fs::write(&path, content)
-            .owe_res()
-            .want("write self update state")
-            .with(("path", path.as_path()))?;
+            .source_err(UvsReason::resource_error().into(), "source error")
+            .doing("write self update state")
+            .with_context(("path", path.as_path()))?;
         Ok(())
     }
 
@@ -102,32 +104,30 @@ impl SelfUpdateStorage {
                     if let Some(pid) = read_lock_pid(&path)
                         && process_is_running(pid)
                     {
-                        return Err(RunReason::Exec("self update is busy".into())
-                            .to_err()
-                            .with_detail(format!(
-                                "lock_file={}, pid={} still running",
-                                path.display(),
-                                pid
-                            )));
+                        return Err(RunReason::Exec.to_err().with_detail(format!(
+                            "self update is busy: lock_file={}, pid={} still running",
+                            path.display(),
+                            pid
+                        )));
                     }
                     let _ = fs::remove_file(&path);
                     create_lock_file(&path)
-                        .owe_res()
-                        .want("create self update lock file")
-                        .with(("path", path.as_path()))
+                        .source_err(UvsReason::resource_error().into(), "source error")
+                        .doing("create self update lock file")
+                        .with_context(("path", path.as_path()))
                 } else {
-                    Err(RunReason::Exec("self update is busy".into())
+                    Err(RunReason::Exec
                         .to_err()
                         .with_detail(format!(
-                            "lock_file={}, remove it manually if previous process crashed",
+                            "self update is busy: lock_file={}, remove it manually if previous process crashed",
                             path.display()
                         )))
                 }
             }
             Err(err) => Err::<FileLock, _>(err)
-                .owe_res()
-                .want("create self update lock file")
-                .with(("path", path.as_path())),
+                .source_err(UvsReason::resource_error().into(), "source error")
+                .doing("create self update lock file")
+                .with_context(("path", path.as_path())),
         }
     }
 
@@ -135,19 +135,18 @@ impl SelfUpdateStorage {
         let mut list = Vec::new();
         let backups = self.backups_dir();
         for item in fs::read_dir(&backups)
-            .owe_res()
-            .want("read self update backups dir")
-            .with(("path", backups.as_path()))?
+            .source_err(RunReason::resource_error(), "read self update backups dir")
+            .with_context(("path", backups.as_path()))?
         {
             let item = item
-                .owe_res()
-                .want("read self update backup entry")
-                .with(("path", backups.as_path()))?;
+                .source_err(UvsReason::resource_error().into(), "source error")
+                .doing("read self update backup entry")
+                .with_context(("path", backups.as_path()))?;
             if item
                 .file_type()
-                .owe_res()
-                .want("read backup entry file type")
-                .with(("path", item.path().as_path()))?
+                .source_err(UvsReason::resource_error().into(), "source error")
+                .doing("read backup entry file type")
+                .with_context(("path", item.path().as_path()))?
                 .is_dir()
             {
                 let file_name = item.file_name();

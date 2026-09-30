@@ -3,16 +3,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use orion_error::{ErrorOwe, ErrorWith};
+use orion_error::conversion::{ErrorWith, SourceErr};
 
-use crate::{ExecResult, traits::Setter, var::VarDict};
+use crate::{ExecReason, ExecResult, traits::Setter, var::VarDict};
 
 use crate::const_val::gxl_const;
 
 pub fn setup_start_vars(vars_dict: &mut VarDict) -> ExecResult<()> {
     vars_dict.set(gxl_const::OS_SYS, format_os_sys().as_str());
 
-    let start_root = current_dir().owe_sys().want("get current dir")?;
+    let start_root = current_dir().source_err(ExecReason::system_error(), "get current dir")?;
     vars_dict.set(gxl_const::START_ROOT, start_root.display().to_string());
     let prj_root_opt = find_project_define();
     let prj_root = prj_root_opt.clone().unwrap_or(PathBuf::from("UNDEFIN"));
@@ -24,7 +24,9 @@ pub fn setup_start_vars(vars_dict: &mut VarDict) -> ExecResult<()> {
 }
 
 pub fn setup_gxlrun_vars(vars_dict: &mut VarDict) -> ExecResult<()> {
-    let start_root = current_dir().owe_sys().want("get current dir")?;
+    let start_root = current_dir()
+        .source_err(ExecReason::system_error(), "source error")
+        .doing("get current dir")?;
     vars_dict.set(gxl_const::CUR_DIR, start_root.display().to_string());
     Ok(())
 }
@@ -56,7 +58,7 @@ pub fn load_secfile(vars_dict: &mut VarDict) -> ExecResult<()> {
     let default = sec_value_default_path();
     let path = env_path.unwrap_or(default);
     if path.exists() {
-        let dict = ValueDict::from_conf(&path).owe_logic()?;
+        let dict = ValueDict::from_conf(&path).source_err(UvsReason::logic_error().into(), "source error")?;
         info!(target: "exec","  load {}", path.display());
         for (k, v) in dict.iter() {
             vars_dict.set(format!("SEC_{}", k.to_uppercase()), {
@@ -77,9 +79,9 @@ pub fn load_secfile(vars_dict: &mut VarDict) -> ExecResult<()> {
         default.insert("example_key1", ValueType::from("value"));
         let dot_path = galaxy_dot_path();
         if !dot_path.exists() {
-            std::fs::create_dir_all(dot_path).owe_res()?;
+            std::fs::create_dir_all(dot_path).source_err(UvsReason::resource_error().into(), "source error")?;
         }
-        default.save_conf(&path).owe_res()?;
+        default.save_conf(&path).source_err(UvsReason::resource_error().into(), "source error")?;
     }
     Ok(())
 }
@@ -113,13 +115,17 @@ pub fn detect_git_branch(start_at: &Path) -> Option<String> {
     let repo = git2::Repository::discover(start_at).ok()?;
     if let Ok(head) = repo.head() {
         if head.is_branch() {
-            return head.shorthand().and_then(non_empty).map(|v| v.to_string());
+            return head
+                .shorthand()
+                .ok()
+                .and_then(non_empty)
+                .map(|v| v.to_string());
         }
         // Detached HEAD is not a branch name by design.
         return None;
     }
     if let Ok(head_ref) = repo.find_reference("HEAD")
-        && let Some(sym) = head_ref.symbolic_target()
+        && let Ok(Some(sym)) = head_ref.symbolic_target()
         && let Some(branch) = sym.strip_prefix("refs/heads/")
     {
         return non_empty(branch).map(|v| v.to_string());
@@ -211,7 +217,8 @@ mod tests {
             .find_reference("HEAD")
             .expect("HEAD ref")
             .symbolic_target()
-            .expect("symbolic head")
+            .expect("read symbolic target")
+            .expect("HEAD is symbolic")
             .strip_prefix("refs/heads/")
             .expect("heads prefix")
             .to_string();

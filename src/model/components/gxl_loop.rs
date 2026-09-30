@@ -1,6 +1,6 @@
 use std::sync::mpsc::Sender;
 
-use orion_error::{ToStructError, UvsFrom};
+use orion_error::conversion::ToStructError;
 use orion_sec::sec::SecValueType;
 
 use super::prelude::*;
@@ -76,7 +76,7 @@ impl AsyncRunnableWithSenderTrait for GxlLoop {
             }
             return Ok(TaskValue::from((cur_dict, ExecOut::Task(task))));
         }
-        ExecReason::Miss(self.var_name().into()).err_result()
+        Err(ExecReason::Miss.to_err().with_detail(self.var_name()))
     }
 }
 
@@ -87,7 +87,7 @@ mod tests {
         ability::GxEcho, components::gxl_block::BlockAction,
         model::components::gxl_block::BlockNode, traits::Getter,
     };
-    use orion_error::TestAssertWithMsg;
+    use orion_error::dev::testing::TestAssertWithMsg;
     use orion_sec::sec::{SecFrom, SecValueObj};
     use orion_variate::vars::UpperKey;
     use rstest::*;
@@ -203,7 +203,8 @@ mod tests {
         // 验证错误情况
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(err.to_string(), "[510] miss : missing_dict"); // 根据实际错误消息调整
+        assert!(matches!(err.reason(), ExecReason::Miss));
+        assert_eq!(err.detail().as_deref(), Some("missing_dict"));
     }
 
     #[rstest]

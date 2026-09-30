@@ -1,5 +1,11 @@
 # 第一期实施总结报告
 
+> **⚠️ 当前状态：本文档为历史阶段性记录，其中描述的功能已下线**
+>
+> AI 能力目前在 galaxy-flow 中不可用：`orion-ai` 依赖在 `Cargo.toml` 中被注释；`gx.ai_chat` / `gx.ai_fun` 的解析与执行模块未编译（`src/parser/inner/mod.rs`、`src/ability/ai/mod.rs` 中相关 `pub mod` 已注释）；`ai_diagnose` 是 no-op。
+>
+> 文中「已完成 / 100%」等结论仅代表当时状态；旧的 `gflow` 二进制已统一为 `gx`。保留原文仅为迁移参考。
+
 ## 项目概述
 
 第一期实施目标是建立最基础的 AI 任务执行框架，为后续的高级功能奠定基础。本期成功实现了 `gx.ai_fun` 的基础 AI 对话能力，完成了从语法解析到执行框架的完整集成。

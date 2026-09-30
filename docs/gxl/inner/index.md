@@ -9,6 +9,7 @@
 - `gx.vars`（仅 env 内）：`docs/gxl/inner/vars.md`
 - `gx.tpl`：`docs/gxl/inner/tpl.md`
 - `gx.ver`：`docs/gxl/inner/ver.md`
+- `gx.sn`：`docs/gxl/inner/sn.md`
 - `gx.run`：`docs/gxl/inner/run.md`
 - `gx.shell`：`docs/gxl/inner/shell.md`
 - `gx.tar / gx.untar`：`docs/gxl/inner/tar_untar.md`
@@ -17,6 +18,7 @@
 
 表达式函数：
 - `defined(${VAR})`：`docs/gxl/inner/defined.md`
+- `gx.exists(flow: "...")`：`docs/gxl/inner/gx_exists.md`
 
 兼容别名说明：
 - 解析器中部分能力存在 `rg.xxx` 兼容解析入口，但在 block/env 语句分发层并未统一开放。

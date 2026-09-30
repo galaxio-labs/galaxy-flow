@@ -16,7 +16,7 @@ use crate::meta::*;
 use contracts::requires;
 use derive_getters::Getters;
 use indexmap::IndexMap;
-use orion_error::{ToStructError, UvsFrom};
+use orion_error::conversion::ToStructError;
 use orion_infra::auto_exit_log;
 
 use std::io::Write;
@@ -228,7 +228,7 @@ impl ExecLoadTrait for GxlMod {
             return Ok(());
         }
         // 如果没有找到指定的环境变量，返回错误
-        Err(ExecError::from(ExecReason::Miss(args.into())))
+        Err(ExecReason::Miss.to_err().with_detail(args))
     }
     fn load_flow(
         &self,
@@ -343,7 +343,7 @@ mod test {
 
     use super::*;
     use crate::friendly::{MultiNew2, New2};
-    use orion_error::TestAssertWithMsg;
+    use orion_error::dev::testing::{TestAssert, TestAssertWithMsg};
     use orion_sec::sec::{SecFrom, SecValueType};
     use orion_variate::vars::UpperKey;
 
@@ -429,7 +429,7 @@ mod test {
 
         // 不添加任何依赖项
 
-        let assembled_mod4 = mod4.assemble(mod_name, &GxlSpace::default())?;
+        let assembled_mod4 = TestAssert::assert(mod4.assemble(mod_name, &GxlSpace::default()));
 
         // 断言检查，确保 envs、flows、acts 空
         assert!(assembled_mod4.envs.is_empty());
@@ -461,7 +461,7 @@ mod test {
         //spc.append(mod2);
 
         // 调用 assemble_depend 方法
-        let assembled_mod2 = mod2.assemble(mod_name2, &spc)?;
+        let assembled_mod2 = TestAssert::assert(mod2.assemble(mod_name2, &spc));
 
         // 断言检查：验证 mod2 是否包含了 mod1 的环境变量
         assert!(assembled_mod2.envs.contains_key("env2"));
@@ -489,14 +489,14 @@ mod test {
         mod1.append(GxlVar::new("key2", "value1"));
         let mut spc = GxlSpace::default();
         spc.append(mod1);
-        spc = spc.assemble().assert("assemble");
+        spc = TestAssertWithMsg::assert(spc.assemble(), "assemble");
 
         let ctx = ExecContext::default();
         let mut sequ = ExecSequence::from("exec");
         //mod1.assemble(mod_name, src)
 
         // 调用 assemble_env 方法
-        spc.load_env(ctx, &mut sequ, "mod1.env1")?;
+        TestAssert::assert(spc.load_env(ctx, &mut sequ, "mod1.env1"));
 
         let ctx = ExecContext::default();
         let vars = VarSpace::default();
@@ -532,7 +532,7 @@ mod test {
         let mut spc = GxlSpace::default();
         spc.append(mod2);
         spc.append(mod1);
-        let spc = spc.assemble().assert("assemble");
+        let spc = TestAssertWithMsg::assert(spc.assemble(), "assemble");
         if let Some(mod1) = spc.get("mod1") {
             if let Some(flow1) = mod1.flows().get("flow1") {
                 assert_eq!(flow1.blocks().len(), 0);
@@ -567,13 +567,13 @@ mod test {
         let mut spc = GxlSpace::default();
         spc.append(mod2);
         spc.append(mod1);
-        let work_spc = spc.assemble()?;
+        let work_spc = TestAssert::assert(spc.assemble());
 
         let ctx = ExecContext::default();
         let mut sequ = ExecSequence::from("exec");
 
         // 调用 assemble_flow 方法
-        work_spc.load_flow(ctx, &mut sequ, "mod2.flow2")?;
+        TestAssert::assert(work_spc.load_flow(ctx, &mut sequ, "mod2.flow2"));
 
         let ctx = ExecContext::default();
         let vars = VarSpace::default();

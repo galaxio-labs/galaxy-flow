@@ -16,6 +16,7 @@ use crate::util::http_handle::send_http_request;
 use crate::util::redirect::{ReadSignal, init_redirect_file, read_log_content, seek_log_file_end};
 use contracts::requires;
 use derive_getters::Getters;
+use orion_error::conversion::ToStructError;
 use orion_infra::auto_exit_log;
 use std::sync::{Arc, Mutex, mpsc};
 
@@ -166,46 +167,49 @@ impl GxlFun {
         let mut shared_task = Arc::new(task.clone());
         let share_task_notice = Arc::new(task_notice.clone());
         let start_pos_clone = Arc::clone(&start_pos);
-        let monitor_handle: tokio::task::JoinHandle<Result<(), ExecReason>> =
-            tokio::spawn(async move {
-                while let Ok(flag) = receiver.recv() {
-                    match flag {
-                        ReadSignal::Start(end) => {
-                            let start = {
-                                let guard = start_pos_clone
-                                    .lock()
-                                    .map_err(|e| ExecReason::Io(e.to_string()))?;
-                                *guard
-                            };
-                            let buf = read_log_content(&log_file, start, end).await?;
-                            if let Some(task_ref) = Arc::get_mut(&mut shared_task) {
-                                task_ref.stdout.push_str(&buf);
-                            }
+        let monitor_handle: tokio::task::JoinHandle<ExecResult<()>> = tokio::spawn(async move {
+            while let Ok(flag) = receiver.recv() {
+                match flag {
+                    ReadSignal::Start(end) => {
+                        let start = {
+                            let guard = start_pos_clone.lock().map_err(|e| {
+                                ExecReason::system_error()
+                                    .to_err()
+                                    .with_detail(format!("lock task log start position: {e}"))
+                            })?;
+                            *guard
+                        };
+                        let buf = read_log_content(&log_file, start, end).await?;
+                        if let Some(task_ref) = Arc::get_mut(&mut shared_task) {
+                            task_ref.stdout.push_str(&buf);
+                        }
 
-                            let url = build_task_url(TaskUrlType::TaskReport)
-                                .await
-                                .unwrap_or_default();
-                            let task_result = {
-                                TaskReport::from_task_and_notice(
-                                    (*shared_task).clone(),
-                                    (*share_task_notice).clone(),
-                                )
-                            };
-                            if let Ok(mut data) = shared_output_clone.lock() {
-                                data.push_str(&buf);
-                            }
-                            send_http_request(task_result.clone(), &url).await;
+                        let url = build_task_url(TaskUrlType::TaskReport)
+                            .await
+                            .unwrap_or_default();
+                        let task_result = {
+                            TaskReport::from_task_and_notice(
+                                (*shared_task).clone(),
+                                (*share_task_notice).clone(),
+                            )
+                        };
+                        if let Ok(mut data) = shared_output_clone.lock() {
+                            data.push_str(&buf);
                         }
-                        ReadSignal::End(cur_start) => {
-                            let mut guard = start_pos_clone
-                                .lock()
-                                .map_err(|e| ExecReason::Io(e.to_string()))?;
-                            *guard = cur_start;
-                        }
+                        send_http_request(task_result.clone(), &url).await;
+                    }
+                    ReadSignal::End(cur_start) => {
+                        let mut guard = start_pos_clone.lock().map_err(|e| {
+                            ExecReason::system_error()
+                                .to_err()
+                                .with_detail(format!("lock task log start position: {e}"))
+                        })?;
+                        *guard = cur_start;
                     }
                 }
-                Ok(())
-            });
+            }
+            Ok(())
+        });
         let sender_option = task_description.as_ref().map(|_| cur_sender.clone());
         let TaskValue { vars, rec, .. } = block.async_exec(ctx, var_dict, sender_option).await?;
 
@@ -223,11 +227,7 @@ impl GxlFun {
     }
 
     /// 报告任务状态
-    async fn report_task_status(
-        &self,
-        task: &Task,
-        task_notice: &TaskNotice,
-    ) -> Result<(), ExecReason> {
+    async fn report_task_status(&self, task: &Task, task_notice: &TaskNotice) -> ExecResult<()> {
         let url = build_task_url(TaskUrlType::TaskReport)
             .await
             .unwrap_or_default();
@@ -240,7 +240,7 @@ impl GxlFun {
         task: &mut Task,
         shared_output: &Arc<Mutex<String>>,
         start_pos: Arc<Mutex<u64>>,
-    ) -> Result<(), ExecReason> {
+    ) -> ExecResult<()> {
         if let Ok(output) = shared_output.lock()
             && !output.is_empty()
         {
@@ -249,9 +249,11 @@ impl GxlFun {
 
         let log_path = init_redirect_file()?;
         let end_pos = seek_log_file_end(&log_path)?;
-        let start = *start_pos
-            .lock()
-            .map_err(|e| ExecReason::Io(e.to_string()))?;
+        let start = *start_pos.lock().map_err(|e| {
+            ExecReason::system_error()
+                .to_err()
+                .with_detail(format!("lock task log start position: {e}"))
+        })?;
         let content = read_log_content(&log_path, start, end_pos).await?;
         task.stdout.push_str(&content);
 
@@ -288,7 +290,7 @@ impl AppendAble<BlockNode> for GxlFun {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::components::GxlMod;
 

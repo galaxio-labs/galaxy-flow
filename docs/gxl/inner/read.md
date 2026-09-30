@@ -31,9 +31,16 @@ gx.read_cmd(
   cmd: "git branch --show-current",
   err: "ERR_MSG",
   ok_codes: "0,1",
-  log: "1"
+  log: "1",
+  stream: "true|false"
 );
 ```
+
+说明：
+
+- `gx.read_cmd` 只会把 `stdout` 写入变量
+- `stream: "true"` 时，命令执行中的 stdout/stderr 会实时输出到当前会话
+- 即使开启 `stream`，最终写入变量的仍然只是 stdout
 
 ## gx.read_stdin
 

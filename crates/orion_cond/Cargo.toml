@@ -14,9 +14,9 @@ wildmatch = "2.6"
 derive_more = { workspace = true }
 contracts = "0.6"
 libc = "0.2.174"
-ipnet = "~2.11"
+ipnet = "2.12"
 
 
 [dev-dependencies]
-rstest = "0.26"
+rstest = "0.27"
 tempfile = "3.10"

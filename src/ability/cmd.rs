@@ -59,8 +59,10 @@ impl GxCmd {
         );
         match res {
             Ok((exit_code, stdout, stderr)) => {
-                let out = String::from_utf8(stdout).map_err(|e| ExecReason::Io(e.to_string()))?;
-                let err = String::from_utf8(stderr).map_err(|e| ExecReason::Io(e.to_string()))?;
+                let out = String::from_utf8(stdout)
+                    .source_raw_err(ExecReason::data_error(), "decode command stdout as utf-8")?;
+                let err = String::from_utf8(stderr)
+                    .source_raw_err(ExecReason::data_error(), "decode command stderr as utf-8")?;
                 action.set_command_output(exit_code, out, err);
             }
             Err(error) => {
@@ -75,7 +77,7 @@ impl GxCmd {
 
 #[cfg(test)]
 mod tests {
-    use orion_error::TestAssertWithMsg;
+    use orion_error::dev::testing::TestAssertWithMsg;
     use std::path::PathBuf;
 
     use super::*;
@@ -113,6 +115,32 @@ mod tests {
         let dto = GxCmdDto {
             cmd: "printf out && printf err 1>&2 && exit 2".into(),
             shell_opt: ShellOption {
+                quiet: true,
+                ok_codes: vec![0, 2],
+                ..Default::default()
+            },
+        };
+        let result = GxCmd::dto_new(dto)
+            .async_exec(context, def)
+            .await
+            .assert("cmd success");
+        let ExecOut::Action(action) = result.rec else {
+            panic!("expected action output");
+        };
+        assert_eq!(action.exit_code, Some(2));
+        assert_eq!(action.stdout, "out");
+        assert_eq!(action.stderr, "err");
+    }
+
+    #[tokio::test]
+    async fn cmd_test_stream_keeps_exit_code_stdout_and_stderr() {
+        let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let _workdir = WorkDirWithLock::change(&manifest_dir).expect("set manifest dir");
+        let (context, def) = ability_env_init();
+        let dto = GxCmdDto {
+            cmd: "printf out && printf err 1>&2 && exit 2".into(),
+            shell_opt: ShellOption {
+                stream: true,
                 quiet: true,
                 ok_codes: vec![0, 2],
                 ..Default::default()

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 
 use std::sync::Arc;
@@ -22,6 +22,9 @@ pub struct ExecContext {
     //dryrun: bool,
     #[getset(get = "pub")]
     gxl_cmd: Arc<GxlCmd>,
+    /// 当前已装配空间的流程限定名集合（`<mod>.<flow>`），供 `gx.exists(...)` 判定。
+    #[getset(get = "pub")]
+    flow_names: Arc<HashSet<String>>,
 }
 impl ExecContext {
     pub fn new(cmd: GxlCmd) -> Self {
@@ -51,6 +54,12 @@ impl ExecContext {
 
     pub fn with_subcontext(mut self, arg: &str) -> Self {
         self.append(arg);
+        self
+    }
+
+    /// 附加当前空间的流程名集合（由 `GxlSpace::exec` 注入）。
+    pub fn with_flow_names(mut self, names: Arc<HashSet<String>>) -> Self {
+        self.flow_names = names;
         self
     }
 }

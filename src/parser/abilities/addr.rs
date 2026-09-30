@@ -97,7 +97,7 @@ pub fn gal_extern_mod(input: &mut &str) -> Result<ModRef> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::util::OptionFrom;
 

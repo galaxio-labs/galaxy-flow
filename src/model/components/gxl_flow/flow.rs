@@ -20,6 +20,7 @@ use crate::util::http_handle::{create_and_send_task_notice, send_http_request};
 use crate::util::redirect::{ReadSignal, init_redirect_file, read_log_content, seek_log_file_end};
 use contracts::requires;
 use derive_getters::Getters;
+use orion_error::conversion::ToStructError;
 use std::io::Write;
 use std::sync::{Arc, Mutex, mpsc};
 
@@ -210,7 +211,7 @@ impl GxlFlow {
         task: &mut Task,
         task_notice: &mut TaskNotice,
         task_description: Option<String>,
-    ) -> Result<(), ExecReason> {
+    ) -> ExecResult<()> {
         if let Some(des) = task_description {
             *task = Task::from(des.clone());
             *task_notice = create_and_send_task_notice(task, task_notice).await?;
@@ -222,12 +223,15 @@ impl GxlFlow {
     async fn notify_log_collection(
         &self,
         sender: Option<mpsc::Sender<ReadSignal>>,
-    ) -> Result<(), ExecReason> {
+    ) -> ExecResult<()> {
         if let Some(send) = sender {
             let log_file = init_redirect_file()?;
             let end_pos = seek_log_file_end(&log_file)?;
-            send.send(ReadSignal::Start(end_pos))
-                .map_err(|e| ExecReason::Io(format!("flow send task error: {e}")))?;
+            send.send(ReadSignal::Start(end_pos)).map_err(|e| {
+                ExecReason::Io
+                    .to_err()
+                    .with_detail(format!("flow send task error: {e}"))
+            })?;
         }
         Ok(())
     }
@@ -286,46 +290,49 @@ impl GxlFlow {
         let mut shared_task = Arc::new(task.clone());
         let share_task_notice = Arc::new(task_notice.clone());
         let start_pos_clone = Arc::clone(&start_pos);
-        let monitor_handle: tokio::task::JoinHandle<Result<(), ExecReason>> =
-            tokio::spawn(async move {
-                while let Ok(flag) = receiver.recv() {
-                    match flag {
-                        ReadSignal::Start(end) => {
-                            let start = {
-                                let guard = start_pos_clone
-                                    .lock()
-                                    .map_err(|e| ExecReason::Io(e.to_string()))?;
-                                *guard
-                            };
-                            let buf = read_log_content(&log_file, start, end).await?;
-                            if let Some(task_ref) = Arc::get_mut(&mut shared_task) {
-                                task_ref.stdout.push_str(&buf);
-                            }
+        let monitor_handle: tokio::task::JoinHandle<ExecResult<()>> = tokio::spawn(async move {
+            while let Ok(flag) = receiver.recv() {
+                match flag {
+                    ReadSignal::Start(end) => {
+                        let start = {
+                            let guard = start_pos_clone.lock().map_err(|e| {
+                                ExecReason::system_error()
+                                    .to_err()
+                                    .with_detail(format!("lock task log start position: {e}"))
+                            })?;
+                            *guard
+                        };
+                        let buf = read_log_content(&log_file, start, end).await?;
+                        if let Some(task_ref) = Arc::get_mut(&mut shared_task) {
+                            task_ref.stdout.push_str(&buf);
+                        }
 
-                            let url = build_task_url(TaskUrlType::TaskReport)
-                                .await
-                                .unwrap_or_default();
-                            let task_result = {
-                                TaskReport::from_task_and_notice(
-                                    (*shared_task).clone(),
-                                    (*share_task_notice).clone(),
-                                )
-                            };
-                            if let Ok(mut data) = shared_output_clone.lock() {
-                                data.push_str(&buf);
-                            }
-                            send_http_request(task_result.clone(), &url).await;
+                        let url = build_task_url(TaskUrlType::TaskReport)
+                            .await
+                            .unwrap_or_default();
+                        let task_result = {
+                            TaskReport::from_task_and_notice(
+                                (*shared_task).clone(),
+                                (*share_task_notice).clone(),
+                            )
+                        };
+                        if let Ok(mut data) = shared_output_clone.lock() {
+                            data.push_str(&buf);
                         }
-                        ReadSignal::End(cur_start) => {
-                            let mut guard = start_pos_clone
-                                .lock()
-                                .map_err(|e| ExecReason::Io(e.to_string()))?;
-                            *guard = cur_start;
-                        }
+                        send_http_request(task_result.clone(), &url).await;
+                    }
+                    ReadSignal::End(cur_start) => {
+                        let mut guard = start_pos_clone.lock().map_err(|e| {
+                            ExecReason::system_error()
+                                .to_err()
+                                .with_detail(format!("lock task log start position: {e}"))
+                        })?;
+                        *guard = cur_start;
                     }
                 }
-                Ok(())
-            });
+            }
+            Ok(())
+        });
         let sender_option = task_description.as_ref().map(|_| cur_sender.clone());
         let TaskValue { vars, .. } = match block.async_exec(ctx, var_dict, sender_option).await {
             Ok(TaskValue { vars, rec }) => {
@@ -352,11 +359,7 @@ impl GxlFlow {
     }
 
     /// 报告任务状态
-    async fn report_task_status(
-        &self,
-        task: &Task,
-        task_notice: &TaskNotice,
-    ) -> Result<(), ExecReason> {
+    async fn report_task_status(&self, task: &Task, task_notice: &TaskNotice) -> ExecResult<()> {
         let url = build_task_url(TaskUrlType::TaskReport)
             .await
             .unwrap_or_default();
@@ -369,12 +372,15 @@ impl GxlFlow {
     async fn finalize_log_collection(
         &self,
         sender: Option<mpsc::Sender<ReadSignal>>,
-    ) -> Result<(), ExecReason> {
+    ) -> ExecResult<()> {
         if let Some(send) = sender {
             let log_file = init_redirect_file()?;
             let end_pos = seek_log_file_end(&log_file)?;
-            send.send(ReadSignal::End(end_pos))
-                .map_err(|e| ExecReason::Io(format!("flow send task error: {e}")))?;
+            send.send(ReadSignal::End(end_pos)).map_err(|e| {
+                ExecReason::Io
+                    .to_err()
+                    .with_detail(format!("flow send task error: {e}"))
+            })?;
         }
         Ok(())
     }
@@ -384,7 +390,7 @@ impl GxlFlow {
         task: &mut Task,
         shared_output: &Arc<Mutex<String>>,
         start_pos: Arc<Mutex<u64>>,
-    ) -> Result<(), ExecReason> {
+    ) -> ExecResult<()> {
         if let Ok(output) = shared_output.lock()
             && !output.is_empty()
         {
@@ -393,9 +399,11 @@ impl GxlFlow {
 
         let log_path = init_redirect_file()?;
         let end_pos = seek_log_file_end(&log_path)?;
-        let start = *start_pos
-            .lock()
-            .map_err(|e| ExecReason::Io(e.to_string()))?;
+        let start = *start_pos.lock().map_err(|e| {
+            ExecReason::system_error()
+                .to_err()
+                .with_detail(format!("lock task log start position: {e}"))
+        })?;
         let content = read_log_content(&log_path, start, end_pos).await?;
         task.stdout.push_str(&content);
 
@@ -491,7 +499,7 @@ impl AppendAble<BlockNode> for GxlFlow {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::{components::GxlMod, infra::once_init_log, meta::MetaInfo};
 

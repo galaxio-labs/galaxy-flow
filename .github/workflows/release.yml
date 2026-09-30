@@ -225,7 +225,7 @@ jobs:
       - name: Checkout gx-get
         uses: actions/checkout@v4
         with:
-          repository: galaxy-sec/get
+          repository: galaxio-labs/get
           token: ${{ secrets.GX_GET_TOKEN }}
           path: gx-get
 

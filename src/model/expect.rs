@@ -28,6 +28,7 @@ pub struct ShellOption {
     pub secrecy: bool,
     pub ok_codes: Vec<i32>,
     pub log_lev: Option<log::Level>,
+    pub stream: bool,
 }
 impl Default for ShellOption {
     fn default() -> Self {
@@ -46,6 +47,7 @@ impl ShellOption {
             secrecy: false,
             ok_codes: vec![0],
             log_lev: Some(log::Level::Info),
+            stream: false,
         }
     }
     pub fn new_explicit(outer: bool, inner: bool) -> Self {
@@ -58,6 +60,7 @@ impl ShellOption {
             secrecy: false,
             ok_codes: vec![0],
             log_lev: Some(log::Level::Info),
+            stream: false,
         }
     }
     pub fn quiet(&self, scope: LogicScope) -> bool {

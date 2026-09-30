@@ -23,6 +23,11 @@ mod main   {
         cmd  : "git branch --show-current | sed -E 's/release/rls/g'" ,
         name : "GIT_BRANCH" );
 
+    gx.read_cmd (
+        cmd : "PYTHONUNBUFFERED=1 ansible-playbook site.yml -vv",
+        name : "LAST_STDOUT",
+        stream : "true" );
+
     gx.echo ( "what:${GIT_BRANCH}" );
 
     gx.read_file ( file : "./var2.ini" , name : "DATA");
@@ -55,4 +60,4 @@ graph TD
 
 ## 说明
 
-这个示例展示了如何使用 `gx.read` 命令从不同来源读取数据。在 `_dev_local` 环境中，使用 `gx.read_file` 从 `var.ini` 文件读取数据。在 `conf` 流程中，使用 `gx.read_cmd` 执行 Git 命令并捕获输出，以及使用 `gx.read_file` 从 `var2.ini` 文件读取数据。还展示了如何遍历读取的数据。
+这个示例展示了如何使用 `gx.read` 命令从不同来源读取数据。在 `_dev_local` 环境中，使用 `gx.read_file` 从 `var.ini` 文件读取数据。在 `conf` 流程中，使用 `gx.read_cmd` 执行 Git 命令并捕获输出，也展示了 `stream: "true"` 的实时输出模式。即使开启流式输出，`gx.read_cmd` 最终仍只会把 stdout 写入变量。还展示了如何遍历读取的数据。

@@ -16,6 +16,8 @@ pub fn gal_download(input: &mut &str) -> Result<GxDownLoad> {
             down.username(v.clone());
         } else if k == "password" {
             down.password(v.clone());
+        } else if k == "force" {
+            down.force(parse_flag(v));
         }
     }
     match down.build() {
@@ -25,6 +27,14 @@ pub fn gal_download(input: &mut &str) -> Result<GxDownLoad> {
             fail.context(wn_desc("gx.download")).parse_next(input)
         }
     }
+}
+
+/// GXL 调用里的布尔字面量（如 `force: "true"` / `force: true`）。
+fn parse_flag(v: &str) -> bool {
+    matches!(
+        v.trim().to_ascii_lowercase().as_str(),
+        "true" | "yes" | "on" | "1"
+    )
 }
 
 pub fn gal_upload(input: &mut &str) -> Result<GxUpLoad> {
@@ -59,7 +69,7 @@ mod tests {
     use crate::infra::once_init_log;
 
     use super::*;
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     #[test]
     fn parse_gx_download() {
@@ -72,6 +82,22 @@ mod tests {
         let obj = gal_download(&mut data).assert();
         assert_eq!(data, "");
         assert_eq!(obj.remote_url(), "https://github/galaxy");
+        // 未写 force：默认 false（沿用 reuse_cache）
+        assert!(!obj.force());
+    }
+
+    #[test]
+    fn parse_gx_download_with_force() {
+        once_init_log();
+        let mut data = r#"
+             gx.download (
+             url : "https://github/galaxy",
+             local_file : "gsys",
+             force : "true",
+             ) ;"#;
+        let obj = gal_download(&mut data).assert();
+        assert_eq!(data, "");
+        assert!(obj.force());
     }
     #[test]
     fn parse_gx_upload() {

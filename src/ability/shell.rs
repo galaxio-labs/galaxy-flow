@@ -1,11 +1,10 @@
 use chrono::Local;
 use orion_conf::{IniIO, JsonIO, TomlIO, YamlIO};
-use rand::Rng;
+use rand::RngExt;
 use std::path::PathBuf;
 
 use crate::{ability::prelude::*, expect::LogicScope, traits::Setter, var::VarDict};
 use getset::{Getters, MutGetters, Setters, WithSetters};
-use orion_error::{ToStructError, UvsFrom};
 use orion_variate::vars::ValueDict;
 #[derive(Clone, Debug, Default, PartialEq, Getters, Setters, WithSetters, MutGetters)]
 #[getset(get = "pub", set = "pub", get_mut, set_with)]
@@ -45,14 +44,27 @@ impl GxShell {
         shell_opt.quiet = ctx.quiet();
         if let Some(arg_file) = &self.arg_file {
             let dict = match arg_file.extension() {
-                Some(ext) if ext == "json" => ValueDict::load_json(arg_file)
-                    .map_err(|e| ExecReason::Serde(format!("JSON解析失败: {e}")))?,
+                Some(ext) if ext == "json" => ValueDict::load_json(arg_file).map_err(|e| {
+                    ExecReason::Serde
+                        .to_err()
+                        .with_detail(format!("JSON解析失败: {e}"))
+                })?,
                 Some(ext) if ext == "yml" || ext == "yaml" => ValueDict::load_yaml(arg_file)
-                    .map_err(|e| ExecReason::Serde(format!("YAML解析失败: {e}")))?,
-                Some(ext) if ext == "toml" => ValueDict::load_toml(arg_file)
-                    .map_err(|e| ExecReason::Serde(format!("TOML解析失败: {e}")))?,
-                Some(ext) if ext == "ini" => ValueDict::load_ini(arg_file)
-                    .map_err(|e| ExecReason::Serde(format!("INI解析失败: {e}")))?,
+                    .map_err(|e| {
+                        ExecReason::Serde
+                            .to_err()
+                            .with_detail(format!("YAML解析失败: {e}"))
+                    })?,
+                Some(ext) if ext == "toml" => ValueDict::load_toml(arg_file).map_err(|e| {
+                    ExecReason::Serde
+                        .to_err()
+                        .with_detail(format!("TOML解析失败: {e}"))
+                })?,
+                Some(ext) if ext == "ini" => ValueDict::load_ini(arg_file).map_err(|e| {
+                    ExecReason::Serde
+                        .to_err()
+                        .with_detail(format!("INI解析失败: {e}"))
+                })?,
                 _ => {
                     return Err(ExecReason::from_logic()
                         .to_err()
@@ -69,11 +81,22 @@ impl GxShell {
             ));
 
             if out_data_path.exists() {
-                std::fs::remove_file(&out_data_path).map_err(|e| ExecReason::Io(e.to_string()))?;
+                std::fs::remove_file(&out_data_path).source_err(
+                    ExecReason::Io,
+                    format!("remove shell output file: {}", out_data_path.display()),
+                )?;
             }
-            std::fs::create_dir_all(out_data_path.parent().unwrap())
-                .map_err(|e| ExecReason::Io(e.to_string()))?;
-            std::fs::File::create(&out_data_path).map_err(|e| ExecReason::Io(e.to_string()))?;
+            std::fs::create_dir_all(out_data_path.parent().unwrap()).source_err(
+                ExecReason::Io,
+                format!(
+                    "create shell output parent: {}",
+                    out_data_path.parent().unwrap().display()
+                ),
+            )?;
+            std::fs::File::create(&out_data_path).source_err(
+                ExecReason::Io,
+                format!("create shell output file: {}", out_data_path.display()),
+            )?;
             // 修改命令以将输出写入 FIFO
 
             vars_dict
@@ -88,12 +111,17 @@ impl GxShell {
                 &exp,
                 vars_dict.global()
             );
-            let file_out = std::fs::read_to_string(&out_data_path)
-                .map_err(|e| ExecReason::Io(e.to_string()))?;
+            let file_out = std::fs::read_to_string(&out_data_path).source_err(
+                ExecReason::Io,
+                format!("read shell output file: {}", out_data_path.display()),
+            )?;
             vars_dict
                 .global_mut()
                 .set(out_var.as_str(), file_out.trim());
-            std::fs::remove_file(out_data_path).map_err(|e| ExecReason::Io(e.to_string()))?;
+            std::fs::remove_file(&out_data_path).source_err(
+                ExecReason::Io,
+                format!("remove shell output file: {}", out_data_path.display()),
+            )?;
             res
         } else {
             gxl_sh!(
@@ -108,8 +136,10 @@ impl GxShell {
 
         match res {
             Ok((exit_code, stdout, stderr)) => {
-                let out = String::from_utf8(stdout).map_err(|e| ExecReason::Io(e.to_string()))?;
-                let err = String::from_utf8(stderr).map_err(|e| ExecReason::Io(e.to_string()))?;
+                let out = String::from_utf8(stdout)
+                    .source_raw_err(ExecReason::data_error(), "decode command stdout as utf-8")?;
+                let err = String::from_utf8(stderr)
+                    .source_raw_err(ExecReason::data_error(), "decode command stderr as utf-8")?;
                 action.set_command_output(exit_code, out, err);
             }
             Err(error) => {
@@ -124,7 +154,7 @@ impl GxShell {
 
 #[cfg(test)]
 mod tests {
-    use orion_error::TestAssertWithMsg;
+    use orion_error::dev::testing::TestAssertWithMsg;
 
     use super::*;
     use crate::{

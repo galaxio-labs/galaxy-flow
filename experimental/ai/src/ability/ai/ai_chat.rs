@@ -1,11 +1,10 @@
 use orion_ai::{AiConfig, AiExecUnitBuilder};
-use orion_error::ErrorConv;
+use orion_error::conversion::ConvErr;
 use std::path::PathBuf;
 
 use crate::ability::{ai::AI_CONTENT, prelude::*};
 use crate::model::traits::Setter;
 use getset::{Getters, MutGetters, Setters};
-use orion_error::{ToStructError, UvsFrom};
 use orion_sec::sec::{SecFrom, SecValueType};
 use orion_variate::EnvDict;
 
@@ -40,15 +39,15 @@ impl AiChatExecutor {
         if let Some(prompt_file) = &self.prompt_file {
             let prompt_file = PathBuf::from(exp.eval(prompt_file)?);
             if !prompt_file.exists() {
-                return ExecReason::Gxl(format!("{path} not exists", path = prompt_file.display()))
+                return ExecReason::Gxl
+                    .to_err()
+                    .with_detail(format!("{path} not exists", path = prompt_file.display()))
                     .err_result();
             }
-            let data = std::fs::read_to_string(prompt_file.as_path())
-                .map_err(|e| {
-                    ExecReason::from_res()
-                        .to_err()
-                        .with_detail(format!("prompt_file:{e}"))
-                })?;
+            let data = std::fs::read_to_string(prompt_file.as_path()).source_err(
+                ExecReason::from_res(),
+                format!("read prompt file: {}", prompt_file.display()),
+            )?;
             message.push('\n');
             message.push_str(data.as_str());
         }
@@ -75,7 +74,7 @@ impl AiChatExecutor {
             //.with_tools(self.tools.clone())
             .build()
             .err_conv()
-            .want("create ai exec unit")?;
+            .doing("create ai exec unit")?;
 
         // 执行AI请求
         let response = exec_unit.execute(message).await.err_conv()?;
@@ -105,7 +104,7 @@ impl AsyncRunnableTrait for AiChatExecutor {
 mod tests {
 
     use orion_ai::GlobalFunctionRegistry;
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::{ability::ai::AI_CONTENT, infra::once_init_log};
 

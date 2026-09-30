@@ -6,9 +6,10 @@ use std::{
 use orion_accessor::{
     addr::{Address, HttpResource},
     types::{ResourceDownloader, ResourceUploader},
-    update::{DownloadOptions, HttpMethod, UploadOptions},
+    update::{DownloadOptions, HttpMethod, UpdateScope, UploadOptions},
 };
-use orion_error::{ErrorOweBase, ToStructError};
+use orion_error::conversion::{SourceErr, SourceRawErr, ToStructError};
+use orion_variate::vars::ValueDict;
 
 use crate::{ability::prelude::*, util::accessor::build_accessor};
 
@@ -33,6 +34,9 @@ pub struct GxDownLoad {
     username: Option<String>,
     #[builder(default)]
     password: Option<String>,
+    /// `force: "true"` 时走 `UpdateScope::RemoteCache`（`clean_cache`），忽略已存在的本地文件强制重下。
+    #[builder(default)]
+    force: bool,
 }
 
 #[async_trait]
@@ -50,7 +54,7 @@ impl AsyncRunnableTrait for GxUpLoad {
         let local_file_path = PathBuf::from(&local_file);
         let method = ex.eval(self.method())?;
         let http_method = HttpMethod::from_str(method.as_str())
-            .owe(ExecReason::Args(format!("bad method:{method}")))?;
+            .source_raw_err(ExecReason::Args, format!("bad method:{method}"))?;
 
         if local_file_path.exists() {
             let accessor = build_accessor(&vars_dict.global().clone().into());
@@ -61,14 +65,15 @@ impl AsyncRunnableTrait for GxUpLoad {
                     &(UploadOptions::with_method(http_method)),
                 )
                 .await
-                .owe_res()?;
+                .source_err(UvsReason::resource_error().into(), "source error")?;
             action.finish();
             Ok(TaskValue::from((vars_dict, ExecOut::Action(action))))
         } else {
-            return ExecReason::Miss("local_file".into())
-                .err_result()
-                .want("gx.upload")
-                .with(&local_file_path);
+            return Err(ExecReason::Miss
+                .to_err()
+                .with_detail("local_file")
+                .doing("gx.upload")
+                .with_context(&local_file_path));
         }
     }
 }
@@ -106,19 +111,20 @@ impl AsyncRunnableTrait for GxDownLoad {
                     .download_to_local(
                         &Address::from(addr),
                         &final_download_path,
-                        &DownloadOptions::default(),
+                        &download_options(*self.force()),
                     )
                     .await
-                    .owe_res()
-                    .with(&final_download_path)?;
+                    .source_err(UvsReason::resource_error().into(), "source error")
+                    .with_context(&final_download_path)?;
                 action.finish();
                 Ok(TaskValue::from((vars_dict, ExecOut::Action(action))))
             }
             _ => {
-                return ExecReason::Miss("parent path not exists".into())
-                    .err_result()
-                    .want("gx.download")
-                    .with(&local_file_path);
+                return Err(ExecReason::Miss
+                    .to_err()
+                    .with_detail("parent path not exists")
+                    .doing("gx.download")
+                    .with_context(&local_file_path));
             }
         }
     }
@@ -166,16 +172,39 @@ impl ComponentMeta for GxDownLoad {
     }
 }
 
+/// 下载选项：`force` 为真时走 `UpdateScope::RemoteCache`（`clean_cache`）强制重下，
+/// 否则沿用默认（`UpdateScope::None`，即 `reuse_cache` 跳过已存在的本地文件）。
+fn download_options(force: bool) -> DownloadOptions {
+    if force {
+        DownloadOptions::new(UpdateScope::RemoteCache, ValueDict::default())
+    } else {
+        DownloadOptions::default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "network_test")]
-    use orion_error::TestAssertWithMsg;
+    use orion_error::dev::testing::TestAssertWithMsg;
     #[cfg(feature = "network_test")]
     use orion_infra::path::ensure_path;
 
     use crate::util::path::WorkDir;
 
     use super::*;
+
+    #[test]
+    fn download_options_force_cleans_cache() {
+        // force：忽略已有文件（reuse_cache=false）并强刷缓存
+        let forced = download_options(true);
+        assert!(!forced.reuse_cache(), "force 应忽略已存在的文件");
+        assert!(forced.clean_cache(), "force 应走 RemoteCache 强刷");
+
+        // 默认：仍复用已有文件
+        let normal = download_options(false);
+        assert!(normal.reuse_cache());
+        assert!(!normal.clean_cache());
+    }
 
     #[cfg(feature = "network_test")]
     #[tokio::test]

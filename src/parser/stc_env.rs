@@ -75,7 +75,7 @@ pub fn gal_stc_env_body(input: &mut &str) -> Result<GxlEnv> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::parser::inner::run_gxl;
 

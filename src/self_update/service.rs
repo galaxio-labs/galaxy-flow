@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use chrono::Utc;
 
-use orion_error::{ErrorOwe, ErrorWith, ToStructError};
+use orion_error::conversion::ToStructError;
+use orion_error::conversion::{ErrorWith, SourceErr};
+use orion_error::reason::UnifiedReason as UvsReason;
 
 use crate::err::{RunReason, RunResult};
 
@@ -144,12 +146,14 @@ impl SelfUpdateService {
         if let Some(expect) = &req.to_version
             && expect.trim() != remote
         {
-            let err = RunReason::Args("target version mismatch".into())
+            let err = RunReason::Args
                 .to_err()
-                .want("validate target update version")
-                .with(("expect", expect.as_str()))
-                .with(("manifest", remote.as_str()))
-                .with_detail(format!("expect={expect}, manifest={remote}"));
+                .doing("validate target update version")
+                .with_context(("expect", expect.as_str()))
+                .with_context(("manifest", remote.as_str()))
+                .with_detail(format!(
+                    "target version mismatch: expect={expect}, manifest={remote}"
+                ));
             let _ = record_failure_state(
                 &self.storage,
                 &mut state,
@@ -293,13 +297,17 @@ impl SelfUpdateService {
 
 fn resolve_install_dir() -> RunResult<PathBuf> {
     let exe = std::env::current_exe()
-        .owe_sys()
-        .want("resolve current executable path")?;
+        .source_err(UvsReason::system_error().into(), "source error")
+        .doing("resolve current executable path")?;
     exe.parent()
         .map(PathBuf::from)
-        .ok_or_else(|| RunReason::Exec("cannot resolve install dir".into()).to_err())
-        .want("resolve install dir from current executable")
-        .with(("exe", exe.as_path()))
+        .ok_or_else(|| {
+            RunReason::Exec
+                .to_err()
+                .with_detail("cannot resolve install dir")
+        })
+        .doing("resolve install dir from current executable")
+        .with_context(("exe", exe.as_path()))
 }
 
 fn record_failure_state(
@@ -332,27 +340,29 @@ fn select_backup_id(backups: &[String], id: Option<&str>) -> RunResult<String> {
     match id {
         Some(raw) => {
             if !is_valid_backup_id(raw) {
-                return Err(RunReason::Args("invalid backup id".into())
+                return Err(RunReason::Args
                     .to_err()
-                    .want("validate backup id")
-                    .with(("backup_id", raw))
-                    .with_detail(format!("backup_id={raw}, expected=14 digits")));
+                    .doing("validate backup id")
+                    .with_context(("backup_id", raw))
+                    .with_detail(format!(
+                        "invalid backup id: backup_id={raw}, expected=14 digits"
+                    )));
             }
             if backups.iter().any(|v| v == raw) {
                 Ok(raw.to_string())
             } else {
-                Err(RunReason::Args("backup id not found".into())
+                Err(RunReason::Args
                     .to_err()
-                    .want("select rollback backup id")
-                    .with(("backup_id", raw))
-                    .with_detail(format!("backup_id={raw}")))
+                    .doing("select rollback backup id")
+                    .with_context(("backup_id", raw))
+                    .with_detail(format!("backup id not found: backup_id={raw}")))
             }
         }
         None => backups
             .first()
             .cloned()
-            .ok_or_else(|| RunReason::Args("no backup found".into()).to_err())
-            .want("select latest rollback backup"),
+            .ok_or_else(|| RunReason::Args.to_err().with_detail("no backup found"))
+            .doing("select latest rollback backup"),
     }
 }
 
@@ -377,15 +387,19 @@ fn read_installed_version(install_dir: &std::path::Path) -> RunResult<String> {
     let out = std::process::Command::new(&bin)
         .arg("--version")
         .output()
-        .owe_res()
-        .want("run installed binary version command")
-        .with(("bin", &bin))?;
+        .source_err(UvsReason::resource_error().into(), "source error")
+        .doing("run installed binary version command")
+        .with_context(("bin", &bin))?;
     if !out.status.success() {
-        return Err(RunReason::Exec("version command failed".into())
+        return Err(RunReason::Exec
             .to_err()
-            .want("read installed binary version")
-            .with(("bin", &bin))
-            .with_detail(format!("{} --version exit={}", bin.display(), out.status)));
+            .doing("read installed binary version")
+            .with_context(("bin", &bin))
+            .with_detail(format!(
+                "version command failed: {} --version exit={}",
+                bin.display(),
+                out.status
+            )));
     }
     let text = format!(
         "{} {}",
@@ -393,11 +407,14 @@ fn read_installed_version(install_dir: &std::path::Path) -> RunResult<String> {
         String::from_utf8_lossy(&out.stderr)
     );
     parse_version_from_text(&text).ok_or_else(|| {
-        RunReason::Exec("cannot parse version output".into())
+        RunReason::Exec
             .to_err()
-            .want("parse installed binary version output")
-            .with(("bin", &bin))
-            .with_detail(format!("bin={}", bin.display()))
+            .doing("parse installed binary version output")
+            .with_context(("bin", &bin))
+            .with_detail(format!(
+                "cannot parse version output: bin={}",
+                bin.display()
+            ))
     })
 }
 
@@ -417,7 +434,9 @@ fn parse_version_from_text(text: &str) -> Option<String> {
 }
 
 fn convert_wp_error(e: impl std::fmt::Display) -> crate::err::RunError {
-    crate::err::RunReason::Exec(e.to_string()).to_err()
+    crate::err::RunReason::Exec
+        .to_err()
+        .with_detail(e.to_string())
 }
 
 #[cfg(test)]

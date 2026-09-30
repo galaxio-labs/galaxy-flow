@@ -218,7 +218,7 @@ mod tests {
 
     use super::*;
     use crate::friendly::New2;
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::{
         components::{GxlEnv, gxl_spc::GxlSpace, gxl_var::GxlVar},
@@ -249,7 +249,7 @@ mod tests {
         base_env.meta_mut().set_mix(vec!["src_env".to_string()]);
 
         // Assemble the base environment with the source module
-        let assembled_env = base_env.assemble("src_mod", &work_spc)?;
+        let assembled_env = base_env.assemble("src_mod", &work_spc).assert();
 
         // Verify that the assembled environment contains both base and source properties
         let props = assembled_env.fetch_props();
@@ -290,7 +290,7 @@ mod tests {
         spc.append(src_mod);
         let w_spc = spc.assemble().assert();
         // Assemble the base environment with the source module
-        let assembled_env = base_env.assemble("src_mod", &w_spc)?;
+        let assembled_env = base_env.assemble("src_mod", &w_spc).assert();
 
         // Verify that the assembled environment contains all properties
         let props = assembled_env.fetch_props();
@@ -316,7 +316,7 @@ mod tests {
         let mut spc = GxlSpace::default();
         spc.append(src_mod);
         // Assemble the base environment with the source module
-        let assembled_env = base_env.assemble("src_mod", &spc)?;
+        let assembled_env = base_env.assemble("src_mod", &spc).assert();
 
         // Verify that the assembled environment only contains the base property
         let props = assembled_env.fetch_props();

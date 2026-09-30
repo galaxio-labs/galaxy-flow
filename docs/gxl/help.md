@@ -127,6 +127,9 @@ gx.read_file(file: "./var.yml", name: "DATA");
 gx.tpl(tpl: "./tpls", dst: "./out", file: "./vars.json");
 ```
 
+补充：
+- 对长时间命令可使用 `stream: "true"`，例如 `gx.cmd(cmd: "ansible-playbook site.yml -vv", stream: "true")`
+
 不要使用旧文档中的 `gx.xxx { ... }` 形式。
 
 ## 5. `gx.patch_file` 快速示例

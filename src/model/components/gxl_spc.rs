@@ -13,12 +13,16 @@ use crate::{
 use colored::Colorize;
 use contracts::requires;
 use indexmap::IndexMap;
-use orion_error::ErrorConv;
-use std::{fmt::Display, sync::mpsc::Sender};
+use orion_error::conversion::{ConvErr, ToStructError};
+use std::{
+    collections::HashSet,
+    fmt::Display,
+    sync::{Arc, mpsc::Sender},
+};
 
 use super::GxlMod;
+use crate::const_val::gxl_const::{MAIN_MOD, full_flow_name};
 
-const MAIN_MOD: &str = "main";
 const ENV_MOD: &str = "env";
 const ENVS_MOD: &str = "envs";
 
@@ -42,8 +46,11 @@ impl GxlSpace {
     }
 
     pub fn main(&self) -> ExecResult<&GxlMod> {
-        self.get(MAIN_MOD)
-            .ok_or_else(|| ExecReason::Args(format!("'{MAIN_MOD}' mod not found",)).into())
+        self.get(MAIN_MOD).ok_or_else(|| {
+            ExecReason::Args
+                .to_err()
+                .with_detail(format!("'{MAIN_MOD}' mod not found"))
+        })
     }
 
     pub fn env(&self) -> ExecResult<&GxlMod> {
@@ -51,7 +58,9 @@ impl GxlSpace {
             .or_else(|| self.get(ENVS_MOD))
             .or_else(|| self.get(MAIN_MOD))
             .ok_or_else(|| {
-                ExecReason::Args("Neither 'envs' 'env' nor 'main' mod found".to_string()).into()
+                ExecReason::Args
+                    .to_err()
+                    .with_detail("Neither 'envs' 'env' nor 'main' mod found")
             })
     }
 
@@ -129,7 +138,7 @@ impl ExecLoadTrait for GxlSpace {
 
         self.mods
             .get(mod_name)
-            .ok_or(ExecReason::Miss(mod_name.to_string()))?
+            .ok_or_else(|| ExecReason::Miss.to_err().with_detail(mod_name.to_string()))?
             .load_env(ctx, sequ, item_name)
     }
 
@@ -145,7 +154,7 @@ impl ExecLoadTrait for GxlSpace {
         let mox = self
             .mods
             .get(mod_name)
-            .ok_or(ExecReason::Miss(mod_name.to_string()))?;
+            .ok_or_else(|| ExecReason::Miss.to_err().with_detail(mod_name.to_string()))?;
         self.mod_load_flow(mox, item_name, &RunUnitGuard::from_flow(), sequ)
     }
 
@@ -172,7 +181,7 @@ fn parse_obj_path(obj_path: &str) -> ExecResult<(&str, &str)> {
 
     match (parts.next(), parts.next()) {
         (Some(mod_name), Some(item_name)) => Ok((mod_name, item_name)),
-        _ => Err(ExecReason::Gxl(obj_path.to_string()).into()),
+        _ => Err(ExecReason::Gxl.to_err().with_detail(obj_path.to_string())),
     }
 }
 
@@ -211,7 +220,7 @@ impl GxlSpace {
         warn!(target : "exec","inherted vars :\n{}", var_space.inherited());
         info!(target : "exec","inherted vars :\n{}", var_space.global());
 
-        let main_ctx = ExecContext::new(cmd.clone());
+        let main_ctx = ExecContext::new(cmd.clone()).with_flow_names(self.flow_names());
         let flow = cmd.flows();
         self.execute_flow(&main_ctx, &var_space, &envs, flow, sender.clone())
             .await
@@ -238,14 +247,14 @@ impl GxlSpace {
 
         let flow_ctx = main_ctx.clone();
         self.load_flow(flow_ctx, &mut exec_sequ, &flow_name)
-            .err_conv()?;
+            .conv_err()?;
 
         let exec_ctx = main_ctx.clone().with_subcontext("exec");
 
         match exec_sequ
             .execute(exec_ctx, var_space.clone(), self, sender)
             .await
-            .err_conv()
+            .conv_err()
         {
             Ok(task) => {
                 task_local_report(task.rec().clone());
@@ -256,10 +265,35 @@ impl GxlSpace {
     }
 
     fn normalize_flow_name(&self, name: &str) -> String {
-        if name.contains('.') {
-            name.to_string()
-        } else {
-            format!("{MAIN_MOD}.{name}",)
+        full_flow_name(name)
+    }
+
+    /// 当前空间里所有可寻址流程的**限定名**（`<mod>.<flow>`）集合。
+    ///
+    /// 供 `gx.exists(...)` 之类的存在性判定使用；从已装配的模块表派生，
+    /// 不触发任何解析或下载。名字统一为限定名，查询方应先用
+    /// [`crate::const_val::gxl_const::full_flow_name`] 归一化，保证与运行期解析一致。
+    pub fn flow_names(&self) -> Arc<HashSet<String>> {
+        let mut names = HashSet::new();
+        for (mod_name, mox) in &self.mods {
+            for flow_name in mox.flows().keys() {
+                names.insert(format!("{mod_name}.{flow_name}"));
+            }
+        }
+        Arc::new(names)
+    }
+
+    /// 判断给定流程名是否存在。未限定名默认归属于 `main` 模块，也接受
+    /// `mod.flow` 限定名；归一化规则与运行期解析共用 [`full_flow_name`]。
+    pub fn has_flow(&self, name: &str) -> bool {
+        let full = full_flow_name(name);
+        match full.split_once('.') {
+            Some((mod_name, flow_name)) => self
+                .mods
+                .get(mod_name)
+                .map(|mox| mox.flows().contains_key(flow_name))
+                .unwrap_or(false),
+            None => false,
         }
     }
 
@@ -287,7 +321,9 @@ impl GxlSpace {
                 continue;
             }
 
-            return Err(RunReason::Args(format!("Environment '{env}' not found",)).into());
+            return Err(RunReason::Args
+                .to_err()
+                .with_detail(format!("Environment '{env}' not found")));
         }
 
         Ok(())
@@ -304,7 +340,7 @@ impl GxlSpace {
         {
             return self.mod_load_flow(mox, meta.name(), guard, sequ);
         }
-        Err(ExecError::from(ExecReason::Miss(meta.long_name())))
+        Err(ExecReason::Miss.to_err().with_detail(meta.long_name()))
     }
     fn mod_load_flow(
         &self,
@@ -341,7 +377,7 @@ impl GxlSpace {
                 }
                 Ok(())
             }
-            None => Err(ExecError::from(ExecReason::Miss(name.into()))),
+            None => Err(ExecReason::Miss.to_err().with_detail(name)),
         }
     }
 }
@@ -387,7 +423,7 @@ mod tests {
         execution::exec_init_env,
         types::AnyResult,
     };
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     #[tokio::test]
     async fn execute_forward() -> AnyResult<()> {
@@ -421,8 +457,12 @@ mod tests {
         let mut flow = ExecSequence::from("test");
         let work_space = code_space.assemble().assert();
 
-        work_space.load_env(ctx.clone(), &mut flow, "env.env1")?;
-        work_space.load_flow(ctx.clone(), &mut flow, "main.flow1")?;
+        work_space
+            .load_env(ctx.clone(), &mut flow, "env.env1")
+            .assert();
+        work_space
+            .load_flow(ctx.clone(), &mut flow, "main.flow1")
+            .assert();
 
         let task_v = flow
             .test_execute(ctx, def, &work_space, None)

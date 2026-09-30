@@ -6,7 +6,7 @@ mod tests {
     use galaxy_flow::execution::VarSpace;
     use galaxy_flow::util::path::WorkDirWithLock;
     use galaxy_flow::{GxLoader, err::RunResult, infra::once_init_log};
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     #[tokio::test(flavor = "current_thread")]
     async fn example_read() -> RunResult<()> {

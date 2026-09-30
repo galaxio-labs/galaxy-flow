@@ -1,6 +1,6 @@
 use derive_more::From;
 use getset::{Getters, WithSetters};
-use orion_error::ToStructError;
+use orion_error::conversion::ToStructError;
 use orion_infra::auto_exit_log;
 
 use crate::ability::prelude::*;
@@ -140,10 +140,9 @@ impl AsyncRunnableTrait for ActCall {
         ctx.append("@");
         match &self.act {
             Some(act) => act.async_exec(ctx, vars_dict, &self.actual_params).await,
-            None => Err(ExecError::from(ExecReason::Gxl(format!(
-                "act call not support :{}",
-                self.name
-            )))),
+            None => Err(ExecReason::Gxl
+                .to_err()
+                .with_detail(format!("act call not support :{}", self.name))),
         }
     }
 }

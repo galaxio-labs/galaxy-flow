@@ -7,7 +7,7 @@
 
 `gx self` 提供自更新能力，支持检查、升级、回滚操作。
 
-**实现方案**：基于 `wp-self-update` 库（v0.1.7），manifest 存储在独立的 `galaxio-labs/get` 仓库。
+**实现方案**：基于 `wp-self-update` 库（当前 `Cargo.toml` 为 `wp-self-update = "0.3"`），manifest 存储在独立的 `galaxio-labs/get` 仓库。
 
 ## 2. CLI 命令
 
@@ -106,6 +106,9 @@ Release workflow (`.github/workflows/release.yml`) 包含 `update-gx-get-manifes
 
 需要配置 GitHub Secret：`GX_GET_TOKEN`（有 `galaxio-labs/get` 仓库写入权限的 PAT）。
 
+> 说明：release workflow 通过 `GX_GET_TOKEN` checkout `galaxio-labs/get` 并写入上述目录，
+> 与 `src/self_update/service.rs` 的读取地址一致。
+
 ## 9. 代码结构
 
 ```
@@ -117,7 +120,7 @@ src/self_update/
   rollback.rs   # 回滚与健康检查
 ```
 
-依赖：`wp-self-update = "0.1.7"`
+依赖：`wp-self-update = "0.3"`
 
 ## 10. 使用示例
 

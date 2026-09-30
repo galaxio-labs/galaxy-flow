@@ -85,7 +85,7 @@ fn format_shell_script(input: &str) -> String {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::parser::{inner::common::run_gxl, stc_blk::gal_block};
 
@@ -198,6 +198,27 @@ mod tests {
              gx.cmd(
              cmd : "echo ok",
              ok_codes : "0,2",
+             ) ;"#;
+        let obj = gal_cmd(&mut data).assert();
+        let xpt = GxCmdDtoBuilder::default()
+            .cmd("echo ok".into())
+            .shell_opt(shell_opt)
+            .build()
+            .unwrap();
+        assert_eq!(data, "");
+        assert_eq!(obj, GxCmd::dto_new(xpt));
+    }
+
+    #[test]
+    fn cmd_test_stream() {
+        let shell_opt = ShellOption {
+            stream: true,
+            ..Default::default()
+        };
+        let mut data = r#"
+             gx.cmd(
+             cmd : "echo ok",
+             stream : "true",
              ) ;"#;
         let obj = gal_cmd(&mut data).assert();
         let xpt = GxCmdDtoBuilder::default()

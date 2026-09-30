@@ -108,7 +108,7 @@ pub fn gal_patch_file(input: &mut &str) -> Result<GxPatchFile> {
 
 #[cfg(test)]
 mod tests {
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use super::*;
 

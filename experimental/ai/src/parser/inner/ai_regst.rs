@@ -25,7 +25,7 @@ pub fn gal_ai_regist(input: &mut &str) -> Result<GxlAiRegist> {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use super::*;
 

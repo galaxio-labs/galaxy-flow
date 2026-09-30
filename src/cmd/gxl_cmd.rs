@@ -148,6 +148,15 @@ pub struct GFlowCmd {
     /// 示例/Example: --ai
     #[arg(long = "ai", action = ArgAction::SetTrue, default_value = "false")]
     pub ai: bool,
+
+    /// 仅判断流程是否存在（不执行）/ Check flow existence only (no execution)
+    ///
+    /// 存在 exit 0，不存在 exit 1；用于「有则调用、无则跳过」。
+    ///
+    /// Exit 0 when the flow(s) exist, 1 otherwise.
+    /// 示例/Example: gx run localize --exists
+    #[arg(long = "exists", action = ArgAction::SetTrue, default_value = "false")]
+    pub exists: bool,
 }
 
 impl GFlowCmd {

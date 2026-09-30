@@ -1,5 +1,11 @@
 # Galaxy Flow AI 配置使用指南
 
+> **⚠️ 当前状态：功能已下线，本文档仅作历史留存**
+>
+> AI 能力目前在 galaxy-flow 中不可用：`orion-ai` 依赖在 `Cargo.toml` 中被注释；`gx.ai_chat` / `gx.ai_fun` 的解析与执行模块未编译（`src/parser/inner/mod.rs`、`src/ability/ai/mod.rs` 中相关 `pub mod` 已注释）；`ai_diagnose` 是 no-op；`gx` 也没有 `ai` 子命令。
+>
+> 因此本文档中的配置与命令在当前版本**无法生效或执行**。
+
 ## 📋 配置文件位置
 
 主配置文件位于：`~/.galaxy/ai.yml`
@@ -12,7 +18,7 @@ cp examples/ai_config_example.yml ~/.galaxy/ai.yml
 
 ## 🔑 环境变量设置
 
-通过 GFlow 的安全变量机制进行设置 TOKEN
+通过安全变量机制 `${SEC_xxx}` 引用 TOKEN（不要把明文密钥写进配置文件）
 
 ## ⚙️ 配置原则
 
@@ -94,15 +100,13 @@ echo $OPENAI_API_KEY
 ```
 
 ### 4. 开始使用
+
+当前版本的 `gx` 没有 `ai` 子命令（见顶部说明），以下历史命令**不可用**，保留仅供参考：
+
 ```bash
-# 列出可用模型
-gflow ai list-models
-
-# 测试 AI 连接
-gflow ai test
-
-# 开始对话
-gflow ai chat
+gflow ai list-models   # 历史命令，当前不可用
+gflow ai test          # 历史命令，当前不可用
+gflow ai chat          # 历史命令，当前不可用
 ```
 
 ## 🎯 配置优化建议

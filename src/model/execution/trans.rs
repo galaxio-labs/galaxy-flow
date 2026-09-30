@@ -71,7 +71,6 @@ mod tests {
         util::redirect::ReadSignal,
     };
     use async_trait::async_trait;
-    use orion_error::UvsFrom;
     use std::sync::{Arc, Mutex, mpsc::Sender};
 
     // Mock runnable task for testing

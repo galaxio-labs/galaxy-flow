@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use orion_conf::TomlIO;
-    use orion_error::TestAssertWithMsg;
+    use orion_error::dev::testing::TestAssertWithMsg;
     use orion_infra::path::make_clean_path;
     use std::path::PathBuf;
 

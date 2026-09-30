@@ -9,11 +9,8 @@ use crate::parser::abilities::addr::gal_git_path;
 use orion_accessor::addr::GitRepository;
 use orion_accessor::types::UpdateUnit;
 use orion_accessor::update::DownloadOptions;
-use orion_error::ContextRecord;
-use orion_error::ErrorOwe;
-use orion_error::ErrorOweBase;
-use orion_error::ErrorWith;
-use orion_error::WithContext;
+use orion_error::conversion::{ErrorWith, SourceErr, ToStructError};
+use orion_error::runtime::WithContext;
 use orion_variate::vars::EnvDict;
 use orion_variate::vars::EnvEvalable;
 use std::fs::read_to_string;
@@ -49,14 +46,14 @@ impl ExternGit {
 
 impl ExternLocal {
     pub fn fetch_code(&self, name: &str) -> ExecResult<String> {
-        let mut ctx = WithContext::want("load code");
+        let mut ctx = WithContext::doing("load code");
         let ee = EnvExpress::from_env();
         let gxl_full_path = format!("{}/{}.gxl", self.path.display(), name);
         let gxl_full_path = crate::evaluator::VarParser::eval(&ee, &gxl_full_path)?;
         ctx.record("gxl", gxl_full_path.as_str());
         let code = read_to_string(gxl_full_path.as_str())
-            .owe(ExecReason::Gxl("read mod file fail!".to_string()))
-            .with(&ctx)?;
+            .source_err(ExecReason::Gxl, "read mod file fail!")
+            .with_context(&ctx)?;
         Ok(code)
     }
 }
@@ -109,14 +106,21 @@ impl ExternParser {
         let extern_mods = gal_extern_mod
             .context(wn_desc("<extern-mod>"))
             .parse_next(cur)
-            .owe(ExecReason::Gxl("parse extern mod fail!".to_string()))?;
+            .map_err(|err| {
+                ExecReason::Gxl
+                    .to_err()
+                    .with_detail(format!("parse extern mod fail!: {err}"))
+            })?;
         let exp = EnvExpress::from_env_mix(vars_space.global().clone());
         let local = match extern_mods.addr() {
             ModAddr::Git(git_addr) => {
                 let git_url = exp.eval(git_addr.remote())?;
                 let cl_git_url = git_url.clone();
-                let (_host, repo_name) = gal_git_path(&mut git_url.as_str())
-                    .owe(ExecReason::Gxl("parse git repo fail!".to_string()))?;
+                let (_host, repo_name) = gal_git_path(&mut git_url.as_str()).map_err(|err| {
+                    ExecReason::Gxl
+                        .to_err()
+                        .with_detail(format!("parse git repo fail!: {err}"))
+                })?;
 
                 debug!("git url: {cl_git_url}");
                 debug!("git repo : {repo_name}",);
@@ -171,7 +175,11 @@ impl ExternParser {
             }
             match status {
                 DslStatus::Code => {
-                    let (code, cur_status) = Self::parse_code(input).owe_data()?;
+                    let (code, cur_status) = Self::parse_code(input).map_err(|err| {
+                        ExecReason::data_error()
+                            .to_err()
+                            .with_detail(err.to_string())
+                    })?;
                     out += code.as_str();
                     status = cur_status;
                     continue;
@@ -183,7 +191,13 @@ impl ExternParser {
                     status = cur_status;
                     have_extern = true;
                 }
-                DslStatus::Data => todo!(),
+                DslStatus::Data => {
+                    // DslStatus::Data 目前没有任何生产者，正常不会走到这里；
+                    // 保留为错误而不是 panic，避免内部状态不一致直接崩掉进程。
+                    return Err(ExecReason::Gxl
+                        .to_err()
+                        .with_detail("unexpected DslStatus::Data in extern_parse"));
+                }
                 DslStatus::End => break,
             }
         }
@@ -194,7 +208,7 @@ impl ExternParser {
 #[cfg(test)]
 mod tests {
 
-    use orion_error::TestAssert;
+    use orion_error::dev::testing::TestAssert;
 
     use crate::GxLoader;
 

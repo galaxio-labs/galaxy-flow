@@ -82,7 +82,9 @@ impl StdinDTO {
         println!("{msg}");
         let mut buffer = String::new();
         let stdin = io::stdin(); // We get `Stdin` here.
-        stdin.read_line(&mut buffer).owe_data()?;
+        stdin
+            .read_line(&mut buffer)
+            .source_err(UvsReason::data_error().into(), "source error")?;
         let mut vars = GxlProps::new("stdio");
         vars.append(GxlVar::new(name, buffer.trim().to_string()));
         vars.export_props(ctx, vars_dict.global_mut(), "")?;
