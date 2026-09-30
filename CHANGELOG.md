@@ -5,6 +5,11 @@ All notable changes to the Galaxy Flow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.15.1] - 2026-09-30
+
+### Dependencies
+- `Cargo.lock`: bump `orion-accessor` to `0.8.3`. The `0.15.0` lock still pinned `0.8.2`, so its binaries did not actually include the download fix; this release makes it effective (an interrupted download leaves no partial file at the destination, `Content-Length` is verified, transport / 5xx / truncation failures retry up to 3 times).
+
 ## [v0.15.0] - 2026-09-30
 
 ### Added

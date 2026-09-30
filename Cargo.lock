@@ -933,7 +933,7 @@ dependencies = [
 
 [[package]]
 name = "galaxy_flow"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2028,9 +2028,9 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orion-accessor"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42cfca01052c5d919269780e6da436c2c95ea904c3631554180e3a88ff3ad09e"
+checksum = "4a050a675651f4dbc26f0e9acf9c7c4715c72df119c07fb9071e27272b30fa8c"
 dependencies = [
  "anyhow",
  "async-trait",
