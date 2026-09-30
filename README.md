@@ -17,18 +17,10 @@ Galaxy Flow 是基于 GXL 的开源自动化工作流引擎，提供自动化编
 - `galaxy-flow` 负责流程定义与执行
 - `galaxy-ops` 负责运维能力的组织、配置与交付
 
-## Current Status / 当前状态
+## GXL 内置能力 / GXL built-ins
 
-- 运行时主链路可用：`parser -> model -> ability -> runner`
-- 内置 `gx.*` 能力可用（见下文）
-- `gx self` 自更新可用（check/update/rollback）
-- AI 能力当前为降级状态（相关代码已隔离到 `experimental/ai/`，见该目录 README）：
-  - `--ai` 参数仍被接受，但 `ai_diagnose` 是 no-op（只打印 `AI diagnose is currently disabled`），出错时不会产生额外诊断
-  - `gx.ai_chat` / `gx.ai_fun` 等内置能力未接入：GXL 中写这些调用会在装配阶段报 `call not found`（实测 `gx.ai_fun`）
+这些是 **GXL**（工作流定义语言）内置的 `gx.*` 能力：
 
-## Core Capabilities / 核心能力
-
-当前 parser 直接支持的内置能力：
 - `gx.assert`
 - `gx.cmd`
 - `gx.echo`
@@ -43,7 +35,7 @@ Galaxy Flow 是基于 GXL 的开源自动化工作流引擎，提供自动化编
 - `gx.patch_file`
 - 表达式函数：`defined(${VAR})`
 
-详细说明见 `docs/gxl/inner/index.md`。
+详细说明见 `docs/gxl/inner/index.md`；速查（参数、示例、坑位）见 gx-skills 的 `gxl-authoring` skill。
 
 ## 安装说明 / Installation
 
@@ -151,7 +143,7 @@ gx run conf                  # 运行工作流中的 conf flow
 gx run test
 ```
 
-常用参数：`-e/--env`、`-c/--conf`、`-d/--debug`、`--log`、`-q/--quiet`、`--cmd-arg`、`--dryrun`、`--ai`（`--ai` 当前无效，见上方「Current Status」）
+常用参数：`-e/--env`、`-c/--conf`、`-d/--debug`、`--log`、`-q/--quiet`、`--cmd-arg`、`--dryrun`、`--ai`（当前无效）
 
 ### `gx adm` — 执行管理流
 
