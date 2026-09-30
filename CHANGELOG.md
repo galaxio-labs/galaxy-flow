@@ -5,6 +5,17 @@ All notable changes to the Galaxy Flow project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.15.0] - 2026-09-30
+
+### Added
+- **`gx.download(..., force: "true")`**: force a re-download instead of reusing an already-present local file. Without `force` the call still skips an existing file (`reuse_cache`); with `force` it goes through `UpdateScope::RemoteCache` (clears the cached copy for that address). This is also the manual escape hatch for a truncated file left behind by an interrupted transfer.
+
+### Dependencies
+- `orion-accessor` `0.8.3` (via the `0.8` requirement): an interrupted `HttpAccessor::download` no longer leaves a partial file at the destination, verifies `Content-Length`, and retries transport / 5xx / truncation failures up to 3 times.
+
+### Documentation
+- `gx.download` docs list `force` and state the download guarantees (no partial file at the destination, bounded internal retries).
+
 ## [v0.14.0] - 2026-09-28
 
 ### Added
