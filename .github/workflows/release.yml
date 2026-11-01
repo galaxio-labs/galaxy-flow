@@ -32,7 +32,7 @@ jobs:
             target: x86_64-unknown-linux-musl
           - os: ubuntu-22.04
             target: aarch64-unknown-linux-musl
-          - os: macos-14
+          - os: macos-15
             target: aarch64-apple-darwin
     steps:
       - name: Checkout repository
