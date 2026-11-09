@@ -229,6 +229,20 @@ jobs:
           token: ${{ secrets.GX_GET_TOKEN }}
           path: gx-get
 
+      # 能读不等于能写：manifest 没变化时 `git push` 根本不会执行，Read-only 的 token
+      # 会一路绿灯，直到下一个版本真有 diff 才 403。在发布开头就把话说清楚。
+      - name: Verify get write permission
+        env:
+          GH_TOKEN: ${{ secrets.GX_GET_TOKEN }}
+        run: |
+          set -euo pipefail
+          push="$(gh api repos/galaxio-labs/get --jq .permissions.push)"
+          if [[ "$push" != "true" ]]; then
+            echo "::error::GX_GET_TOKEN 对 galaxio-labs/get 没有写权限（fine-grained PAT 需 Contents = Read and write）"
+            exit 1
+          fi
+          echo "GX_GET_TOKEN 可写 galaxio-labs/get"
+
       - name: Update manifest and history
         run: |
           set -euo pipefail
